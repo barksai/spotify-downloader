@@ -41,6 +41,7 @@ class AudioDownloader:
             "no_warnings": True,
             "extract_flat": True,
             "skip_download": True,
+            "socket_timeout": 15,
         }
 
         queries = []
@@ -159,12 +160,23 @@ class AudioDownloader:
             bitrate_value = "0"  # VBR
 
         ydl_opts = {
-            "format": "bestaudio/best",
+            "format": "ba/b/bestaudio/best",
             "outtmpl": str(temp_base) + ".%(ext)s",
             "progress_hooks": [_ydl_hook],
             "quiet": True,
             "no_warnings": True,
             "noprogress": True,
+            "socket_timeout": 20,
+            "retries": 10,
+            "fragment_retries": 10,
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "ios", "web"],
+                }
+            },
+            "http_headers": {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            },
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",

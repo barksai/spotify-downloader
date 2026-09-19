@@ -10,10 +10,11 @@ ENV PYTHONUNBUFFERED=1 \
     CONFIG_DIR=/config \
     DOWNLOAD_DIR=/music
 
-# Installer FFmpeg et curl (pour le healthcheck)
+# Installer FFmpeg, curl et nodejs (requis par yt-dlp pour décoder les flux YouTube sans bridage)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
+    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Répertoire de travail
