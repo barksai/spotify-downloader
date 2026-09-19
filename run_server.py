@@ -62,6 +62,7 @@ def main():
 
     print("====================================================================")
     print("   Spotify & Album MP3 Downloader - Serveur Web Auto-heberge")
+    print("   Version : v2.1.0 [Anti-bridage YouTube + Node.js + Tags Jellyfin]")
     print("====================================================================")
     print()
     print("  Accès depuis ce PC :           http://localhost:8000")
