@@ -9,7 +9,7 @@ services:
     container_name: spotify-downloader
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "9000:8000"
     environment:
       - TZ=Europe/Paris
       - CONFIG_DIR=/config
