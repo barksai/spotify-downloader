@@ -42,6 +42,7 @@ class AudioDownloader:
             "extract_flat": True,
             "skip_download": True,
             "socket_timeout": 15,
+            "source_address": "0.0.0.0",
         }
 
         queries = []
@@ -163,12 +164,16 @@ class AudioDownloader:
             "format": "ba/b/bestaudio/best",
             "outtmpl": str(temp_base) + ".%(ext)s",
             "progress_hooks": [_ydl_hook],
-            "quiet": True,
-            "no_warnings": True,
+            "quiet": False,
+            "no_warnings": False,
             "noprogress": True,
+            "source_address": "0.0.0.0",  # Force IPv4 (évite le blocage IPv6 dans Docker)
+            "http_chunk_size": 10485760,  # Découpage en blocs de 10 Mo pour contourner le bridage
+            "throttled_rate": 102400,     # Seuil 100 Ko/s pour forcer la reconnexion automatique
             "socket_timeout": 20,
             "retries": 10,
             "fragment_retries": 10,
+            "js_runtimes": {"node": {}},  # Utiliser Node.js pour résoudre le défi n-sig
             "extractor_args": {
                 "youtube": {
                     "player_client": ["android", "ios", "web"],
