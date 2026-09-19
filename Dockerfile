@@ -4,17 +4,19 @@
 # ==============================================================================
 FROM python:3.11-slim
 
+# Copier le binaire Deno officiel (moteur JavaScript recommandé par yt-dlp pour résoudre les défis YouTube EJS)
+COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
+
 # Empêcher Python de générer des fichiers .pyc et forcer l'affichage immédiat des logs
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     CONFIG_DIR=/config \
     DOWNLOAD_DIR=/music
 
-# Installer FFmpeg, curl et nodejs (requis par yt-dlp pour décoder les flux YouTube sans bridage)
+# Installer FFmpeg et curl
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
-    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Répertoire de travail

@@ -155,7 +155,7 @@ async def get_system_info():
         "local_ips": local_ips,
         "port": 8000,
         "access_urls": [f"http://{ip}:8000" for ip in local_ips],
-        "version": "2.1.0",
+        "version": "2.2.0",
         "download_dir": config.get("download_dir"),
         "audio_quality": config.get("audio_quality", "320k"),
         "max_threads": config.get("max_threads", 3),

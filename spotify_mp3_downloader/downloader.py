@@ -168,15 +168,9 @@ class AudioDownloader:
             "no_warnings": False,
             "noprogress": True,
             "source_address": "0.0.0.0",  # Force IPv4 (évite le blocage IPv6 dans Docker)
-            "http_chunk_size": 10485760,  # Découpage en blocs de 10 Mo pour contourner le bridage
-            "throttled_rate": 102400,     # Seuil 100 Ko/s pour forcer la reconnexion automatique
-            "socket_timeout": 20,
+            "socket_timeout": 30,
             "retries": 10,
             "fragment_retries": 10,
-            "js_runtimes": {"node": {}},  # Utiliser Node.js pour résoudre le défi n-sig
-            "http_headers": {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            },
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
