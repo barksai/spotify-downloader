@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  spotify-downloader:
+    image: spotify-downloader:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spotify-downloader
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - TZ=Europe/Paris
+      - CONFIG_DIR=/config
+      - DOWNLOAD_DIR=/music
+    volumes:
+      # Dossier persistant pour la configuration (settings.json)
+      - ./config:/config
+      # Dossier hôte Debian où seront enregistrés les MP3 téléchargés
+      # Remplacez '/srv/musique' par le chemin réel de stockage sur votre serveur Debian
+      - /srv/musique:/music

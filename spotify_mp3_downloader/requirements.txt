@@ -1,0 +1,12 @@
+﻿customtkinter>=6.0.0
+spotipy>=2.26.0
+yt-dlp>=2026.8.0
+mutagen>=1.48.0
+requests>=2.31.0
+pillow>=10.0.0
+pytest>=8.0.0
+pyinstaller>=6.0.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+jinja2>=3.1.0
+python-multipart>=0.0.9

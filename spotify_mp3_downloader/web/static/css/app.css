@@ -1,0 +1,583 @@
+﻿/* ==========================================================================
+   Spotify & Album MP3 Downloader - Responsive Stylesheet (Mobile-first)
+   ========================================================================== */
+
+:root {
+    --bg-main: #121212;
+    --bg-surface: #181818;
+    --bg-card: #202020;
+    --bg-card-hover: #2a2a2a;
+    --border-color: #2e2e2e;
+    --text-main: #ffffff;
+    --text-muted: #a7a7a7;
+    --accent: #1db954;
+    --accent-hover: #1ed760;
+    --danger: #e22134;
+    --warning: #f59e0b;
+    --info: #3b82f6;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --shadow: 0 8px 24px rgba(0,0,0,0.5);
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: var(--font-family);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 75px; /* Pour la barre de navigation mobile */
+}
+
+/* ==========================================================================
+   En-tête & Barre de Navigation
+   ========================================================================== */
+
+header {
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding: 12px 20px;
+}
+
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.logo span {
+    color: var(--text-main);
+}
+
+/* Navigation Desktop */
+.nav-desktop {
+    display: none;
+    gap: 8px;
+}
+
+.nav-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.nav-btn:hover {
+    color: var(--text-main);
+    background-color: rgba(255,255,255,0.07);
+}
+
+.nav-btn.active {
+    background-color: var(--accent);
+    color: #000000;
+}
+
+/* Barre de navigation Mobile (fixée en bas) */
+.nav-mobile {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #161616;
+    border-top: 1px solid var(--border-color);
+    z-index: 200;
+    justify-content: space-around;
+    padding: 6px 0;
+}
+
+.nav-mobile-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.72rem;
+    padding: 6px 12px;
+    cursor: pointer;
+    position: relative;
+}
+
+.nav-mobile-btn .icon {
+    font-size: 1.3rem;
+}
+
+.nav-mobile-btn.active {
+    color: var(--accent);
+}
+
+/* Badge de compteur */
+.badge {
+    background-color: var(--accent);
+    color: #000;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+/* ==========================================================================
+   Contenu Principal & Sections
+   ========================================================================== */
+
+main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px 16px;
+    width: 100%;
+    flex: 1;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
+   Bannières & Barres de Recherche
+   ========================================================================== */
+
+.hero-banner {
+    background: linear-gradient(135deg, #1b3d22 0%, #151515 100%);
+    border: 1px solid rgba(29, 185, 84, 0.2);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.hero-banner h1 {
+    font-size: 1.4rem;
+    margin-bottom: 6px;
+}
+
+.hero-banner p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+/* Switcher de mode de recherche */
+.segmented-control {
+    display: flex;
+    background-color: var(--bg-surface);
+    border-radius: 30px;
+    padding: 4px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border-color);
+    max-width: 440px;
+}
+
+.segmented-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 8px 14px;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.segmented-btn.active {
+    background-color: var(--accent);
+    color: #000;
+}
+
+/* Barre de saisie */
+.search-box-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+    flex-direction: column;
+}
+
+@media (min-width: 600px) {
+    .search-box-container {
+        flex-direction: row;
+    }
+}
+
+.search-input {
+    flex: 1;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-main);
+    font-size: 0.95rem;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search-input:focus {
+    border-color: var(--accent);
+}
+
+.btn-primary {
+    background-color: var(--accent);
+    color: #000000;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 12px 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background-color 0.2s, transform 0.1s;
+    min-height: 44px;
+}
+
+.btn-primary:hover {
+    background-color: var(--accent-hover);
+}
+
+.btn-primary:active {
+    transform: scale(0.98);
+}
+
+.btn-secondary {
+    background-color: #2e2e2e;
+    color: var(--text-main);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+    background-color: #3e3e3e;
+}
+
+/* ==========================================================================
+   Grille de Cartes d'Albums / Playlists
+   ========================================================================== */
+
+.cards-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+@media (min-width: 600px) {
+    .cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+}
+
+.album-card {
+    background-color: var(--bg-card);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    padding: 14px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    transition: background-color 0.2s, transform 0.2s;
+}
+
+.album-card:hover {
+    background-color: var(--bg-card-hover);
+    transform: translateY(-2px);
+}
+
+.album-cover {
+    width: 76px;
+    height: 76px;
+    border-radius: var(--radius-sm);
+    object-fit: cover;
+    background-color: #333;
+    flex-shrink: 0;
+}
+
+.album-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.album-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.album-artist {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.album-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   File d'attente (Queue)
+   ========================================================================== */
+
+.queue-header-card {
+    background-color: var(--bg-surface);
+    border-radius: var(--radius-md);
+    padding: 18px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 16px;
+}
+
+.progress-bar-wrapper {
+    background-color: #2c2c2c;
+    border-radius: 6px;
+    height: 10px;
+    overflow: hidden;
+    margin: 12px 0;
+}
+
+.progress-bar-fill {
+    background-color: var(--accent);
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.queue-controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.queue-item {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+}
+
+.queue-item-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.queue-item-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 10px;
+}
+
+.queue-item-status {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+/* ==========================================================================
+   Bibliothèque & Lecteur Audio
+   ========================================================================== */
+
+.library-album-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+
+.library-album-header {
+    padding: 14px 18px;
+    background-color: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.library-track-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.library-track-row:last-child {
+    border-bottom: none;
+}
+
+.player-bar {
+    position: fixed;
+    bottom: 60px;
+    left: 0;
+    right: 0;
+    background-color: #1a1a1a;
+    border-top: 1px solid var(--border-color);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    z-index: 150;
+}
+
+@media (min-width: 769px) {
+    .player-bar {
+        bottom: 0;
+    }
+    body {
+        padding-bottom: 60px;
+    }
+}
+
+/* ==========================================================================
+   Modale d'exploration des pistes
+   ========================================================================== */
+
+.modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.modal-backdrop.open {
+    display: flex;
+}
+
+.modal-container {
+    background-color: #1e1e1e;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 650px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #181818;
+}
+
+.track-select-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.track-select-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+/* ==========================================================================
+   Media Queries Desktop (≥ 769px)
+   ========================================================================== */
+
+@media (min-width: 769px) {
+    .nav-desktop {
+        display: flex;
+    }
+    .nav-mobile {
+        display: none;
+    }
+    .logo {
+        font-size: 1.3rem;
+    }
+}

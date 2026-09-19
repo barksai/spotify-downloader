@@ -1,0 +1,50 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Caches and testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Binaries & Executables (ex: local Windows ffmpeg)
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+*.apk
+
+# PyInstaller / Build artifacts
+build/
+dist/
+*.spec
+
+# Persistent data & volume mounts
+config/
+music/
+downloads/
+*.log
+.system_generated/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# IDEs
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Spotify & Album MP3 Downloader</title>
+    <link rel="stylesheet" href="/static/css/app.css?v=2.0.2">
+</head>
+<body>
+
+    <!-- En-tête Supérieur -->
+    <header>
+        <div class="header-container">
+            <div class="logo">
+                <span>🎧</span> Spotify MP3 <span>Downloader</span>
+            </div>
+
+            <!-- Navigation Desktop -->
+            <nav class="nav-desktop">
+                <button class="nav-btn active" data-tab="tab-search">🔍 Recherche & Liens</button>
+                <button class="nav-btn" data-tab="tab-queue">📥 File d'attente <span id="queue-badge" class="badge" style="display: none;">0</span></button>
+                <button class="nav-btn" data-tab="tab-library">🎵 Lecteur Serveur</button>
+                <button class="nav-btn" data-tab="tab-settings">⚙️ Paramètres</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Contenu Principal -->
+    <main>
+
+        <!-- ========================================================
+             ONGLET 1 : RECHERCHE D'ALBUMS & LIENS SPOTIFY
+             ======================================================== -->
+        <section id="tab-search" class="tab-pane active">
+            <div class="hero-banner">
+                <h1>Téléchargement d'Albums & Playlists</h1>
+                <p>Recherchez n'importe quel album ou collez un lien Spotify pour télécharger directement sur le serveur en MP3 320 kbps avec pochette et tags ID3 complets.</p>
+            </div>
+
+            <!-- Sélecteur de mode -->
+            <div class="segmented-control">
+                <button id="mode-album-btn" class="segmented-btn active" onclick="setSearchMode('album')">💿 Rechercher un Album</button>
+                <button id="mode-url-btn" class="segmented-btn" onclick="setSearchMode('url')">🔗 Lien direct Spotify</button>
+            </div>
+
+            <!-- Barre de Recherche -->
+            <div class="search-box-container">
+                <input id="main-search-input" type="text" class="search-input" placeholder="Tapez le nom d'un album ou d'un artiste (ex: Daft Punk Discovery, Nirvana Nevermind)...">
+                <button id="main-search-btn" class="btn-primary" onclick="handleMainSearch()">
+                    <span>🔍</span> <span id="search-btn-text">Rechercher l'album</span>
+                </button>
+            </div>
+
+            <!-- Titre des résultats -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 id="results-title" style="font-size: 1.1rem;">Résultats</h3>
+                <span id="results-count" style="color: var(--text-muted); font-size: 0.85rem;"></span>
+            </div>
+
+            <!-- Grille des Résultats -->
+            <div id="results-grid" class="cards-grid">
+                <div style="grid-column: 1 / -1; text-align: center; padding: 40px 10px; color: var(--text-muted);">
+                    Saisissez un album ci-dessus pour lancer la recherche.
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ========================================================
+             ONGLET 2 : FILE DE TÉLÉCHARGEMENT & SUIVI EN DIRECT
+             ======================================================== -->
+        <section id="tab-queue" class="tab-pane">
+            <div class="queue-header-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <h2 id="queue-status-title" style="font-size: 1.2rem;">File d'attente vide</h2>
+                    <span id="queue-overall-pct" style="font-weight: 700; color: var(--accent);">0%</span>
+                </div>
+                
+                <p id="queue-status-sub" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 6px;">
+                    0 terminé • 0 en cours • 0 échec
+                </p>
+
+                <!-- Barre de progression globale -->
+                <div class="progress-bar-wrapper">
+                    <div id="global-progress-bar" class="progress-bar-fill"></div>
+                </div>
+
+                <!-- Contrôles de la file -->
+                <div class="queue-controls">
+                    <button id="queue-pause-btn" class="btn-secondary" onclick="controlQueue('pause')">⏸ Pause</button>
+                    <button class="btn-secondary" onclick="controlQueue('retry')">🔄 Réessayer échecs</button>
+                    <button class="btn-secondary" onclick="controlQueue('clear_completed')">🧹 Nettoyer terminés</button>
+                    <button class="btn-secondary" style="color: #ef5350;" onclick="controlQueue('clear_all')">🗑 Tout vider</button>
+                </div>
+            </div>
+
+            <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Tâches actives</h3>
+            <div id="queue-tasks-list" class="queue-list">
+                <div style="text-align: center; padding: 30px; color: var(--text-muted);">
+                    Aucun morceau dans la file.
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ========================================================
+             ONGLET 3 : LECTEUR AUDIO & MUSIQUE DU SERVEUR (STREAMING)
+             ======================================================== -->
+        <section id="tab-library" class="tab-pane">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h2 style="font-size: 1.25rem;">Lecteur Audio & Musique du Serveur</h2>
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">Écoutez vos morceaux et albums en streaming direct depuis le serveur.</p>
+                    <p id="library-current-dir" style="color: var(--accent); font-size: 0.8rem; margin-top: 4px; font-family: monospace;"></p>
+                </div>
+                <button class="btn-secondary" onclick="loadServerLibrary()">🔄 Actualiser</button>
+            </div>
+
+            <div id="library-container">
+                <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    Chargement de la bibliothèque...
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ========================================================
+             ONGLET 4 : PARAMÈTRES DU SERVEUR
+             ======================================================== -->
+        <section id="tab-settings" class="tab-pane">
+            
+            <!-- Carte Réseau / Smartphone -->
+            <div class="queue-header-card" style="margin-bottom: 20px;">
+                <h2 style="font-size: 1.25rem; margin-bottom: 8px;">📲 Accès depuis Smartphone & Navigateur</h2>
+                <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; margin-bottom: 12px;">
+                    Ouvrez cette adresse dans le navigateur de votre smartphone connecté au Wi-Fi pour piloter les téléchargements et écouter la musique en streaming :
+                </p>
+                <div id="server-ips-container" style="display: flex; flex-direction: column; gap: 6px;"></div>
+            </div>
+
+            <!-- Configuration des Chemins et de l'Organisation -->
+            <div class="queue-header-card">
+                <h2 style="font-size: 1.25rem; margin-bottom: 16px;">⚙️ Configuration du Serveur Windows</h2>
+
+                <!-- Chemin local sur le serveur -->
+                <div style="margin-bottom: 18px;">
+                    <label style="font-weight: 700; font-size: 0.95rem; display: block; margin-bottom: 6px;">
+                        📂 Dossier local de téléchargement sur le serveur :
+                    </label>
+                    <input id="setting-download-dir" type="text" class="search-input" placeholder="ex: D:\Musique ou C:\Users\pierre\Music\SpotifyDownloads">
+                    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 5px;">
+                        Chemin absolu du dossier sur votre machine Windows où les morceaux seront enregistrés et diffusés en streaming.
+                    </p>
+                </div>
+
+                <!-- Modèles prédéfinis -->
+                <div style="margin-bottom: 14px;">
+                    <label style="font-weight: 700; font-size: 0.95rem; display: block; margin-bottom: 6px;">
+                        📁 Structure de rangement des dossiers (Template) :
+                    </label>
+                    <select id="setting-template-preset" class="search-input" onchange="onPresetSelected(this.value)" style="margin-bottom: 8px;">
+                        <option value="{Artist}/{Album}/{TrackNumber} - {Title}.mp3">Artiste / Album / [Num] Titre</option>
+                        <option value="{Artist}/{TrackNumber} - {Title}.mp3">Artiste / [Num] Titre</option>
+                        <option value="{Playlist}/{TrackNumber} - {Artist} - {Title}.mp3">Playlist / [Num] Artiste - Titre</option>
+                        <option value="{Year} - {Album}/{TrackNumber} - {Title}.mp3">Année - Album / [Num] Titre</option>
+                        <option value="{Artist} - {Title}.mp3">Tout à plat (Artiste - Titre)</option>
+                        <option value="custom">Personnalisé...</option>
+                    </select>
+                    <input id="setting-template" type="text" class="search-input" placeholder="{Artist}/{Album}/{TrackNumber} - {Title}.mp3" oninput="updateTemplatePreview()">
+                </div>
+
+                <!-- Aperçu dynamique du chemin complet -->
+                <div style="background-color: #161616; padding: 12px 16px; border-radius: 8px; border: 1px solid #2e2e2e; margin-bottom: 18px;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">Aperçu du chemin complet généré sur le serveur :</div>
+                    <div id="setting-template-preview" style="color: var(--accent); font-family: monospace; font-size: 0.9rem; word-break: break-all;"></div>
+                </div>
+
+                <!-- Qualité Audio & Threads -->
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 20px;">
+                    <div style="flex: 1; min-width: 220px;">
+                        <label style="font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 6px;">Qualité Audio MP3 :</label>
+                        <select id="setting-audio-quality" class="search-input">
+                            <option value="320k">320 kbps (CBR Haute Fidélité)</option>
+                            <option value="256k">256 kbps (Très haute qualité)</option>
+                            <option value="192k">192 kbps (Standard)</option>
+                            <option value="128k">128 kbps (Économie d'espace)</option>
+                            <option value="V0">V0 (VBR Dynamique)</option>
+                        </select>
+                    </div>
+
+                    <div style="width: 150px;">
+                        <label style="font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 6px;">Threads simultanés :</label>
+                        <input id="setting-threads" type="number" min="1" max="6" class="search-input">
+                    </div>
+                </div>
+
+                <button class="btn-primary" onclick="saveSettings()">💾 Enregistrer les paramètres</button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Lecteur Audio Bar (Fixé en bas, optimisé streaming) -->
+    <div id="player-bar" class="player-bar" style="display: none;">
+        <div style="flex: 1; min-width: 0;">
+            <div id="player-title" style="font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Titre</div>
+            <div id="player-sub" style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Streaming Serveur</div>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <button class="btn-secondary" style="padding: 6px 10px;" onclick="playPrevTrack()" title="Piste précédente">⏮</button>
+            <audio id="audio-element" controls style="max-width: 280px; height: 36px;"></audio>
+            <button class="btn-secondary" style="padding: 6px 10px;" onclick="playNextTrack()" title="Piste suivante">⏭</button>
+            <button class="btn-secondary" style="padding: 6px 10px;" onclick="closePlayer()">✕</button>
+        </div>
+    </div>
+
+    <!-- Navigation Mobile (Barre d'onglets tactile fixée en bas) -->
+    <nav class="nav-mobile">
+        <button class="nav-mobile-btn active" data-tab="tab-search">
+            <span class="icon">🔍</span>
+            <span>Recherche</span>
+        </button>
+        <button class="nav-mobile-btn" data-tab="tab-queue">
+            <span class="icon">📥</span>
+            <span>File <span id="queue-badge-mobile" class="badge" style="display: none;">0</span></span>
+        </button>
+        <button class="nav-mobile-btn" data-tab="tab-library">
+            <span class="icon">🎵</span>
+            <span>Lecteur</span>
+        </button>
+        <button class="nav-mobile-btn" data-tab="tab-settings">
+            <span class="icon">⚙️</span>
+            <span>Réglages</span>
+        </button>
+    </nav>
+
+    <!-- Modale d'exploration des pistes d'un album -->
+    <div id="album-modal" class="modal-backdrop">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modal-album-title" style="font-size: 1.15rem;">Album</h3>
+                    <p id="modal-album-sub" style="font-size: 0.85rem; color: var(--text-muted);"></p>
+                </div>
+                <button class="btn-secondary" style="padding: 6px 10px;" onclick="closeModal()">✕</button>
+            </div>
+
+            <div style="padding: 10px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <button class="btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="toggleAllTracks(true)">Tout cocher</button>
+                    <button class="btn-secondary" style="padding: 4px 10px; font-size: 0.8rem;" onclick="toggleAllTracks(false)">Tout décocher</button>
+                </div>
+                <span id="modal-selected-count" style="font-size: 0.85rem; color: var(--accent); font-weight: 700;"></span>
+            </div>
+
+            <div id="modal-tracklist" class="modal-body">
+                <!-- Rempli par JS -->
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal()">Annuler</button>
+                <button class="btn-primary" onclick="confirmAddSelectedTracks()">➕ Télécharger la sélection</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js?v=2.0.2"></script>
+</body>
+</html>
