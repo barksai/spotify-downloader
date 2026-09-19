@@ -247,6 +247,7 @@ async function downloadFullItem(item, triggerBtn) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 playlist_name: item.name,
+                playlist_owner: item.owner,
                 tracks: tracks
             })
         });
@@ -329,6 +330,7 @@ async function confirmAddSelectedTracks() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 playlist_name: currentModalAlbum.name,
+                playlist_owner: currentModalAlbum.owner,
                 tracks: selectedTracks
             })
         });

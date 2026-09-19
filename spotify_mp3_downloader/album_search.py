@@ -1,4 +1,4 @@
-﻿"""
+"""
 Spotify MP3 Downloader - Album Search Engine
 Recherche d'albums complète (via Deezer et iTunes APIs publiques, gratuites et sans clé)
 permettant d'explorer et de télécharger un album complet en MP3 320 kbps.
@@ -125,6 +125,11 @@ def fetch_album_tracks(album_id: str, album_name: str, artist_name: str, cover_u
             raw_tracks = data.get("tracks", {}).get("data", [])
             total = len(raw_tracks)
             
+            # Genre musical
+            genres_data = data.get("genres", {}).get("data", [])
+            genre = genres_data[0].get("name") if genres_data else ""
+            max_discs = max([t.get("disk_number", 1) or 1 for t in raw_tracks]) if raw_tracks else 1
+            
             for idx, t in enumerate(raw_tracks, start=1):
                 dur_sec = t.get("duration", 0)
                 dur_ms = dur_sec * 1000
@@ -134,6 +139,8 @@ def fetch_album_tracks(album_id: str, album_name: str, artist_name: str, cover_u
                 pos = t.get("track_position") or idx
                 t_artist = t.get("artist", {}).get("name") or owner
                 t_title = t.get("title") or f"Piste {pos}"
+                t_disc = t.get("disk_number", 1) or 1
+                t_isrc = t.get("isrc")
                 
                 tracks.append(SpotifyTrack(
                     id=f"dz_{t.get('id')}",
@@ -146,10 +153,13 @@ def fetch_album_tracks(album_id: str, album_name: str, artist_name: str, cover_u
                     release_date=rel_date,
                     track_number=pos,
                     track_number_padded=f"{pos:02d}",
-                    disc_number=t.get("disk_number", 1) or 1,
+                    disc_number=t_disc,
+                    disc_total=max_discs,
                     total_tracks=total,
                     duration_ms=dur_ms,
                     duration_str=dur_str,
+                    genre=genre,
+                    isrc=t_isrc,
                     cover_url=final_cover,
                     spotify_url="",
                     playlist_name=title_album
@@ -170,6 +180,8 @@ def fetch_album_tracks(album_id: str, album_name: str, artist_name: str, cover_u
                     final_cover = art.replace("100x100bb.jpg", "600x600bb.jpg")
                 owner = alb_meta.get("artistName") or owner
                 title_album = alb_meta.get("collectionName") or title_album
+                genre = alb_meta.get("primaryGenreName") or ""
+                disc_total = alb_meta.get("discCount", 1) or 1
                 
                 song_items = [it for it in items[1:] if it.get("wrapperType") == "track"]
                 total = len(song_items)
@@ -181,8 +193,10 @@ def fetch_album_tracks(album_id: str, album_name: str, artist_name: str, cover_u
                     s = dur_sec % 60
                     dur_str = f"{m}:{s:02d}"
                     pos = it.get("trackNumber", 1)
+                    disc_num = it.get("discNumber", 1) or 1
                     t_artist = it.get("artistName") or owner
                     t_title = it.get("trackName") or f"Piste {pos}"
+                    t_isrc = it.get("isrc")
                     
                     tracks.append(SpotifyTrack(
                         id=f"it_{it.get('trackId')}",
@@ -195,10 +209,13 @@ def fetch_album_tracks(album_id: str, album_name: str, artist_name: str, cover_u
                         release_date=rel_date,
                         track_number=pos,
                         track_number_padded=f"{pos:02d}",
-                        disc_number=it.get("discNumber", 1) or 1,
+                        disc_number=disc_num,
+                        disc_total=disc_total,
                         total_tracks=total,
                         duration_ms=dur_ms,
                         duration_str=dur_str,
+                        genre=genre,
+                        isrc=t_isrc,
                         cover_url=final_cover,
                         spotify_url="",
                         playlist_name=title_album

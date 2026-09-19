@@ -53,6 +53,8 @@ class SpotifyTrack:
     cover_url: Optional[str] = None
     spotify_url: str = ""
     playlist_name: str = "Spotify"
+    genre: Optional[str] = None
+    disc_total: int = 1
 
     @classmethod
     def from_spotify_dict(cls, item: Dict[str, Any], playlist_name: str = "Spotify") -> "SpotifyTrack":
@@ -392,6 +394,9 @@ class SpotifyManager:
         raw_tracklist = entity.get("trackList", [])
         tracks: List[SpotifyTrack] = []
 
+        rel_date = entity.get("releaseDate", {}).get("isoString", "") if isinstance(entity.get("releaseDate"), dict) else str(entity.get("releaseDate") or "")
+        year = rel_date[:4] if rel_date else ""
+
         for idx, item in enumerate(raw_tracklist, start=1):
             t_uri = item.get("uri") or ""
             t_id = t_uri.split(":")[-1] if ":" in t_uri else f"t_{idx}"
@@ -418,11 +423,12 @@ class SpotifyManager:
                 artists=t_artists,
                 album=name,
                 album_artist=creator,
-                year="",
-                release_date="",
+                year=year,
+                release_date=rel_date,
                 track_number=idx,
                 track_number_padded=f"{idx:02d}",
                 disc_number=1,
+                disc_total=1,
                 total_tracks=len(raw_tracklist),
                 duration_ms=dur_ms,
                 duration_str=dur_str,

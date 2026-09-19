@@ -203,11 +203,20 @@ async def api_get_album_details(
                 "id": t.id,
                 "title": t.title,
                 "artist": t.artist,
+                "artists": t.artists,
                 "album": t.album,
+                "album_artist": t.album_artist or album.owner,
+                "year": t.year,
+                "release_date": t.release_date,
+                "genre": getattr(t, "genre", None),
                 "duration_str": t.duration_str,
                 "duration_ms": t.duration_ms,
                 "track_number": t.track_number,
                 "track_number_padded": t.track_number_padded,
+                "disc_number": t.disc_number,
+                "disc_total": getattr(t, "disc_total", 1),
+                "total_tracks": t.total_tracks,
+                "isrc": t.isrc,
                 "cover_url": t.cover_url
             }
             for t in album.tracks
@@ -235,11 +244,20 @@ async def api_resolve_spotify_url(payload: Dict[str, str] = Body(...)):
                     "id": t.id,
                     "title": t.title,
                     "artist": t.artist,
+                    "artists": t.artists,
                     "album": t.album,
+                    "album_artist": t.album_artist or playlist.owner,
+                    "year": t.year,
+                    "release_date": t.release_date,
+                    "genre": getattr(t, "genre", None),
                     "duration_str": t.duration_str,
                     "duration_ms": t.duration_ms,
                     "track_number": t.track_number,
                     "track_number_padded": t.track_number_padded,
+                    "disc_number": t.disc_number,
+                    "disc_total": getattr(t, "disc_total", 1),
+                    "total_tracks": t.total_tracks,
+                    "isrc": t.isrc,
                     "cover_url": t.cover_url
                 }
                 for t in playlist.tracks
@@ -257,27 +275,34 @@ async def api_resolve_spotify_url(payload: Dict[str, str] = Body(...)):
 async def api_queue_add(payload: Dict[str, Any] = Body(...)):
     """Ajoute des pistes ou un album entier à la file de téléchargement."""
     playlist_name = payload.get("playlist_name", "Album")
+    playlist_owner = payload.get("playlist_owner", "")
     raw_tracks = payload.get("tracks", [])
     if not raw_tracks:
         raise HTTPException(status_code=400, detail="Aucune piste à ajouter.")
 
     tracks: List[SpotifyTrack] = []
     for t in raw_tracks:
+        artist_val = t.get("artist", "Artiste inconnu")
+        artists_val = t.get("artists") or [artist_val]
+        album_artist_val = t.get("album_artist") or playlist_owner or artist_val
         tracks.append(SpotifyTrack(
             id=str(t.get("id")),
             title=t.get("title", "Titre inconnu"),
-            artist=t.get("artist", "Artiste inconnu"),
-            artists=[t.get("artist", "Artiste inconnu")],
+            artist=artist_val,
+            artists=artists_val,
             album=t.get("album", playlist_name),
-            album_artist=t.get("artist", "Artiste inconnu"),
+            album_artist=album_artist_val,
             year=str(t.get("year", "")),
             release_date=str(t.get("release_date", "")),
             track_number=int(t.get("track_number", 1)),
             track_number_padded=str(t.get("track_number_padded") or f"{int(t.get('track_number', 1)):02d}"),
             disc_number=int(t.get("disc_number", 1)),
-            total_tracks=len(raw_tracks),
+            disc_total=int(t.get("disc_total", 1) or 1),
+            total_tracks=int(t.get("total_tracks") or len(raw_tracks)),
             duration_ms=int(t.get("duration_ms", 0)),
             duration_str=str(t.get("duration_str", "0:00")),
+            genre=t.get("genre"),
+            isrc=t.get("isrc"),
             cover_url=t.get("cover_url"),
             playlist_name=playlist_name
         ))

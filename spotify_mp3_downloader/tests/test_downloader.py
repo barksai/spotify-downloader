@@ -1,4 +1,4 @@
-﻿"""
+"""
 Tests unitaires pour le moteur de téléchargement et l'injection ID3v2 Mutagen.
 """
 import os
@@ -60,5 +60,19 @@ def test_mutagen_id3_tagging():
         assert str(tags.get("TALB")) == "Random Access Memories"
         assert str(tags.get("TPE2")) == "Daft Punk"
         assert str(tags.get("TRCK")) == "8/13"
+        assert str(tags.get("TPOS")) == "1/1"
         assert str(tags.get("TSRC")) == "USQX91300108"
         assert "Spotify MP3 Downloader" in str(tags.get("COMM:Comment:eng"))
+
+
+def test_save_folder_cover_for_jellyfin():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        downloader = AudioDownloader()
+        dummy_cover = b"\xff\xd8\xff\xe0" + b"\x00" * 100
+        downloader._save_folder_cover(tmpdir, dummy_cover)
+
+        assert os.path.exists(os.path.join(tmpdir, "cover.jpg"))
+        assert os.path.exists(os.path.join(tmpdir, "folder.jpg"))
+        with open(os.path.join(tmpdir, "cover.jpg"), "rb") as f:
+            assert f.read() == dummy_cover
+

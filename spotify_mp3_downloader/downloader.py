@@ -14,7 +14,7 @@ import requests
 import yt_dlp
 from mutagen.mp3 import MP3
 from mutagen.id3 import (
-    ID3, TIT2, TPE1, TPE2, TALB, TDRC, TYER, TRCK, TPOS, TSRC, COMM, APIC, ID3NoHeaderError
+    ID3, TIT2, TPE1, TPE2, TALB, TDRC, TYER, TDAT, TRCK, TPOS, TSRC, TCON, TCMP, COMM, APIC, ID3NoHeaderError
 )
 
 from .spotify_client import SpotifyTrack
@@ -191,8 +191,9 @@ class AudioDownloader:
         if progress_cb:
             progress_cb("Injection des métadonnées ID3 & pochette...", 95.0)
 
+        cover_bytes = None
         try:
-            self._tag_mp3(str(temp_mp3), track)
+            cover_bytes = self._tag_mp3(str(temp_mp3), track)
         except Exception as e:
             print(f"[Downloader] Avertissement tagging ID3: {e}")
 
@@ -211,6 +212,10 @@ class AudioDownloader:
                 except Exception:
                     pass
             shutil.move(str(temp_mp3), output_filepath)
+
+            # Sauvegarde de la pochette cover.jpg / folder.jpg pour Jellyfin / Plex / Picard
+            if cover_bytes:
+                self._save_folder_cover(target_dir, cover_bytes)
         except Exception as e:
             self._cleanup(temp_base, temp_mp3)
             raise RuntimeError(f"Impossible de déplacer le fichier vers la destination: {e}")
@@ -220,8 +225,23 @@ class AudioDownloader:
 
         return True
 
-    def _tag_mp3(self, mp3_path: str, track: SpotifyTrack) -> None:
-        """Injecte tous les tags ID3v2.3 et la couverture HD avec Mutagen."""
+    def _save_folder_cover(self, target_dir: str, cover_data: bytes) -> None:
+        """Sauvegarde cover.jpg et folder.jpg dans le dossier d'album pour Jellyfin / Plex / Navidrome."""
+        try:
+            for cover_name in ("cover.jpg", "folder.jpg"):
+                c_path = os.path.join(target_dir, cover_name)
+                if not os.path.exists(c_path):
+                    with open(c_path, "wb") as f:
+                        f.write(cover_data)
+        except Exception as e:
+            print(f"[Downloader] Note enregistrement cover.jpg: {e}")
+
+    def _tag_mp3(self, mp3_path: str, track: SpotifyTrack) -> Optional[bytes]:
+        """
+        Injecte tous les tags ID3v2.3 conformes aux exigences de Jellyfin, MusicBrainz Picard,
+        Windows Explorer et autoradios, avec encodage UTF-16, pochette HD et sauvegarde ID3v1.
+        Retourne les octets de la pochette pour création éventuelle de cover.jpg.
+        """
         try:
             audio = MP3(mp3_path, ID3=ID3)
         except ID3NoHeaderError:
@@ -231,59 +251,101 @@ class AudioDownloader:
         if audio.tags is None:
             audio.add_tags(ID3=ID3)
 
-        # Nettoyage préalable des tags existants pour éviter les doublons
+        # Nettoyage préalable des tags existants pour éviter les doublons ou scories yt-dlp
         audio.tags.clear()
 
-        # Titre (TIT2)
-        audio.tags.add(TIT2(encoding=3, text=track.title))
+        # 1. Titre (TIT2)
+        audio.tags.add(TIT2(encoding=1, text=track.title))
 
-        # Artistes (TPE1)
+        # 2. Artistes interprètes (TPE1)
         artists_list = track.artists if track.artists else [track.artist]
-        audio.tags.add(TPE1(encoding=3, text=artists_list))
+        audio.tags.add(TPE1(encoding=1, text=artists_list))
 
-        # Artiste de l'album (TPE2)
-        audio.tags.add(TPE2(encoding=3, text=track.album_artist or track.artist))
+        # 3. Artiste de l'album (TPE2) - Crucial pour le regroupement dans Jellyfin & Picard
+        album_artist = track.album_artist or track.artist or "Various Artists"
+        audio.tags.add(TPE2(encoding=1, text=album_artist))
 
-        # Album (TALB)
-        audio.tags.add(TALB(encoding=3, text=track.album))
+        # 4. Album (TALB)
+        audio.tags.add(TALB(encoding=1, text=track.album))
 
-        # Date & Année (TDRC / TYER)
-        if track.release_date:
-            audio.tags.add(TDRC(encoding=3, text=track.release_date))
-        if track.year:
-            audio.tags.add(TYER(encoding=3, text=track.year))
+        # 5. Date & Année (TYER / TDAT / TDRC)
+        year_str = str(track.year or "").strip()
+        rel_date_str = str(track.release_date or "").strip()
+        if not year_str and rel_date_str:
+            year_str = rel_date_str[:4]
+        if year_str:
+            audio.tags.add(TYER(encoding=1, text=year_str))
+        if rel_date_str:
+            audio.tags.add(TDRC(encoding=1, text=rel_date_str))
+            if len(rel_date_str) >= 10 and "-" in rel_date_str:
+                try:
+                    parts = rel_date_str[:10].split("-")
+                    # TDAT in ID3v2.3 is DDMM
+                    audio.tags.add(TDAT(encoding=1, text=f"{parts[2]}{parts[1]}"))
+                except Exception:
+                    pass
 
-        # Numéro de piste / Total (TRCK)
-        trck_str = f"{track.track_number}/{track.total_tracks}" if track.total_tracks else str(track.track_number)
-        audio.tags.add(TRCK(encoding=3, text=trck_str))
+        # 6. Numéro de piste / Total (TRCK) - format standard "01/12" ou "1/12"
+        if track.total_tracks:
+            trck_str = f"{track.track_number}/{track.total_tracks}"
+        else:
+            trck_str = str(track.track_number)
+        audio.tags.add(TRCK(encoding=1, text=trck_str))
 
-        # Numéro de disque (TPOS)
-        audio.tags.add(TPOS(encoding=3, text=str(track.disc_number or 1)))
+        # 7. Numéro de disque / Total disques (TPOS) - format standard "1/1"
+        disc_num = track.disc_number or 1
+        disc_total = getattr(track, "disc_total", 1) or 1
+        audio.tags.add(TPOS(encoding=1, text=f"{disc_num}/{disc_total}"))
 
-        # ISRC (TSRC)
+        # 8. Genre musical (TCON)
+        genre_val = getattr(track, "genre", None)
+        if genre_val:
+            audio.tags.add(TCON(encoding=1, text=genre_val))
+
+        # 9. ISRC (TSRC)
         if track.isrc:
-            audio.tags.add(TSRC(encoding=3, text=track.isrc))
+            audio.tags.add(TSRC(encoding=1, text=track.isrc))
 
-        # Commentaire de source (COMM)
-        audio.tags.add(COMM(encoding=3, lang="eng", desc="Comment", text="Exporté via Spotify MP3 Downloader"))
+        # 10. Tag Compilation (TCMP)
+        if album_artist.lower() in ("various artists", "divers artistes", "compilation", "soundtrack", "various"):
+            audio.tags.add(TCMP(encoding=1, text="1"))
 
-        # Pochette HD (APIC)
+        # 11. Commentaire de source (COMM)
+        audio.tags.add(COMM(encoding=1, lang="eng", desc="Comment", text="Exporté via Spotify MP3 Downloader"))
+
+        # 12. Pochette HD (APIC)
+        cover_bytes: Optional[bytes] = None
         if track.cover_url:
             try:
                 resp = requests.get(track.cover_url, timeout=10)
-                if resp.status_code == 200:
+                if resp.status_code == 200 and resp.content:
+                    raw_content = resp.content
+                    try:
+                        from io import BytesIO
+                        from PIL import Image
+                        if not raw_content.startswith(b"\xff\xd8\xff"):
+                            img = Image.open(BytesIO(raw_content)).convert("RGB")
+                            buf = BytesIO()
+                            img.save(buf, format="JPEG", quality=95)
+                            cover_bytes = buf.getvalue()
+                        else:
+                            cover_bytes = raw_content
+                    except Exception:
+                        cover_bytes = raw_content
+
                     audio.tags.add(APIC(
-                        encoding=3,
+                        encoding=0,
                         mime="image/jpeg",
                         type=3,  # Front cover
-                        desc="Cover",
-                        data=resp.content
+                        desc="Front Cover",
+                        data=cover_bytes
                     ))
             except Exception as e:
                 print(f"[Downloader] Impossible de télécharger la pochette ({track.cover_url}): {e}")
 
-        # Sauvegarde en ID3v2.3 (standard Windows Explorer & autoradios)
-        audio.save(v2_version=3)
+        # Sauvegarde en ID3v2.3 (standard Jellyfin/Picard/Windows) + ID3v1 compatible
+        audio.save(v2_version=3, v1=2)
+        return cover_bytes
 
     def _cleanup(self, temp_base: Path, temp_mp3: Path) -> None:
         """Nettoie les fichiers temporaires éventuels."""
