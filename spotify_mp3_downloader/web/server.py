@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Query, Body, HTTPException
+from fastapi import FastAPI, Request, Query, Body, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -155,11 +155,12 @@ async def get_system_info():
         "local_ips": local_ips,
         "port": 8000,
         "access_urls": [f"http://{ip}:8000" for ip in local_ips],
-        "version": "2.2.1",
+        "version": "2.2.2",
         "download_dir": config.get("download_dir"),
         "audio_quality": config.get("audio_quality", "320k"),
         "max_threads": config.get("max_threads", 3),
-        "preset_templates": PRESET_TEMPLATES
+        "preset_templates": PRESET_TEMPLATES,
+        "has_cookies": (Path(os.environ.get("CONFIG_DIR", "/config")) / "cookies.txt").exists()
     }
 
 
@@ -513,3 +514,18 @@ async def api_save_settings(payload: Dict[str, Any] = Body(...)):
         "preview": preview_template(curr_tmpl),
         "full_preview": os.path.join(curr_dir, preview_template(curr_tmpl))
     }
+
+
+@app.post("/api/settings/cookies")
+async def api_upload_cookies(file: UploadFile = File(...)):
+    """Téléverse un fichier cookies.txt pour contourner le bridage YouTube."""
+    config_dir = Path(os.environ.get("CONFIG_DIR", "/config"))
+    config_dir.mkdir(parents=True, exist_ok=True)
+    target_path = config_dir / "cookies.txt"
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Fichier cookies.txt vide")
+    with open(target_path, "wb") as f:
+        f.write(content)
+    return {"status": "ok", "message": "Fichier cookies.txt activé avec succès !", "size": len(content)}
+

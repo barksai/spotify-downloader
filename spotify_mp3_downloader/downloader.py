@@ -161,7 +161,8 @@ class AudioDownloader:
             bitrate_value = "0"  # VBR
 
         ydl_opts = {
-            "format": "ba/b/bestaudio/best",
+            "format": "ba[protocol^=m3u8]/ba/b/bestaudio/best",
+            "concurrent_fragment_downloads": 5,
             "outtmpl": str(temp_base) + ".%(ext)s",
             "progress_hooks": [_ydl_hook],
             "quiet": False,

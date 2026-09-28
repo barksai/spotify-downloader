@@ -622,6 +622,22 @@ async function loadSystemInfo() {
             `;
             container.appendChild(link);
         });
+
+        // Mise à jour du badge cookies YouTube
+        const badge = document.getElementById("cookies-status-badge");
+        if (badge) {
+            if (data.has_cookies) {
+                badge.textContent = "✅ Actif (cookies.txt détecté)";
+                badge.style.background = "rgba(29, 185, 84, 0.2)";
+                badge.style.color = "#1db954";
+                badge.style.border = "1px solid rgba(29, 185, 84, 0.5)";
+            } else {
+                badge.textContent = "⚠️ Non configuré (Optionnel)";
+                badge.style.background = "rgba(255, 193, 7, 0.15)";
+                badge.style.color = "#ffc107";
+                badge.style.border = "1px solid rgba(255, 193, 7, 0.3)";
+            }
+        }
     } catch (e) {
         console.error("System info error:", e);
     }
@@ -729,3 +745,53 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+// ==========================================================================
+// Gestion de l'upload cookies.txt
+// ==========================================================================
+
+let selectedCookiesFile = null;
+
+function handleCookiesSelected(event) {
+    const file = event.target.files[0];
+    if (file) {
+        selectedCookiesFile = file;
+        const nameEl = document.getElementById("cookies-file-name");
+        if (nameEl) nameEl.textContent = file.name;
+        const uploadBtn = document.getElementById("cookies-upload-btn");
+        if (uploadBtn) uploadBtn.style.display = "inline-block";
+    }
+}
+
+async function uploadCookiesFile() {
+    if (!selectedCookiesFile) return;
+    const btn = document.getElementById("cookies-upload-btn");
+    btn.disabled = true;
+    btn.textContent = "Téléversement...";
+
+    const formData = new FormData();
+    formData.append("file", selectedCookiesFile);
+
+    try {
+        const resp = await fetch("/api/settings/cookies", {
+            method: "POST",
+            body: formData
+        });
+        const res = await resp.json();
+        if (resp.ok) {
+            alert("✅ Fichier cookies.txt activé avec succès sur le serveur !");
+            loadSystemInfo();
+            btn.style.display = "none";
+            const nameEl = document.getElementById("cookies-file-name");
+            if (nameEl) nameEl.textContent = "cookies.txt (actif)";
+        } else {
+            alert("Erreur : " + (res.detail || "Échec du téléversement"));
+        }
+    } catch (e) {
+        alert("Erreur de connexion : " + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "⬆️ Téléverser et Activer";
+    }
+}
+
