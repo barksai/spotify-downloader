@@ -171,12 +171,18 @@ class AudioDownloader:
             "socket_timeout": 30,
             "retries": 10,
             "fragment_retries": 10,
+            "buffersize": 1024 * 64,
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
                 "preferredquality": bitrate_value,
             }],
         }
+
+        # Détection automatique de cookies.txt si présent dans le dossier /config
+        cookie_file = Path(os.environ.get("CONFIG_DIR", "/config")) / "cookies.txt"
+        if cookie_file.exists():
+            ydl_opts["cookiefile"] = str(cookie_file)
 
         ffmpeg_bin = self._find_ffmpeg()
         if ffmpeg_bin:

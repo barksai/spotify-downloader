@@ -62,7 +62,7 @@ def main():
 
     print("====================================================================")
     print("   Spotify & Album MP3 Downloader - Serveur Web Auto-heberge")
-    print("   Version : v2.2.0 [Moteur Deno EJS + Anti-403 + Tags Jellyfin]")
+    print("   Version : v2.2.1 [MTU Fix 1350 + Deno EJS + Tags Jellyfin]")
     print("====================================================================")
     print()
     print("  Accès depuis ce PC :           http://localhost:8000")

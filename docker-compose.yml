@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   spotify-downloader:
     image: spotify-downloader:latest
@@ -15,8 +13,17 @@ services:
       - CONFIG_DIR=/config
       - DOWNLOAD_DIR=/music
     volumes:
-      # Dossier persistant pour la configuration (settings.json)
+      # Dossier persistant pour la configuration (settings.json, cookies.txt)
       - ./config:/config
       # Dossier hôte Debian où seront enregistrés les MP3 téléchargés
-      # Remplacez '/srv/musique' par le chemin réel de stockage sur votre serveur Debian
       - /srv/musique:/music
+    sysctls:
+      - net.ipv4.tcp_mtu_probing=1
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1350"
