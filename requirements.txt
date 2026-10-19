@@ -7,7 +7,7 @@ pydantic>=2.6.0
 # yt-dlp évolue très vite face aux changements de YouTube : version figée, mise à jour par Dependabot
 yt-dlp==2026.8.19
 yt-dlp-ejs==0.8.0
-mutagen>=1.47.0
+mutagen>=1.48.1
 requests>=2.31.0
 spotipy>=2.24.0
 pillow>=10.0.0
