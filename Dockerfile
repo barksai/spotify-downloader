@@ -2,7 +2,7 @@
 # Dockerfile - Spotify & Album MP3 Downloader Web Server
 # Base: Python 3.11 Slim (Debian) + FFmpeg
 # ==============================================================================
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Copier le binaire Deno officiel (moteur JavaScript recommandé par yt-dlp pour résoudre les défis YouTube EJS)
 COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
