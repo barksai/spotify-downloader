@@ -10,7 +10,6 @@ from tkinter import messagebox
 from ...spotify_client import spotify_manager, SpotifyPlaylist, SpotifyTrack
 from ...album_search import search_albums, fetch_album_tracks
 from ...queue_manager import queue_manager
-from ...config import config
 from ..components.playlist_card import PlaylistCard
 
 
@@ -317,9 +316,10 @@ class PlaylistsTab(ctk.CTkFrame):
                         self._render_items(results)
                 self.after(0, _done)
             except Exception as e:
+                err = str(e)
                 def _err():
                     self.album_search_btn.configure(state="normal", text="🔍 Rechercher l'album")
-                    messagebox.showerror("Erreur de recherche", f"La recherche a échoué: {e}")
+                    messagebox.showerror("Erreur de recherche", f"La recherche a échoué: {err}")
                 self.after(0, _err)
 
         threading.Thread(target=_search, daemon=True).start()
@@ -371,7 +371,8 @@ class PlaylistsTab(ctk.CTkFrame):
                     full_alb = fetch_album_tracks(playlist.id, playlist.name, playlist.owner, playlist.cover_url)
                     self.after(0, lambda: TrackSelectionDialog(self, full_alb, self._add_tracks_to_queue))
                 except Exception as e:
-                    self.after(0, lambda: messagebox.showerror("Erreur", f"Impossible de charger les pistes: {e}"))
+                    err = str(e)
+                    self.after(0, lambda err=err: messagebox.showerror("Erreur", f"Impossible de charger les pistes: {err}"))
             threading.Thread(target=_fetch, daemon=True).start()
         elif not playlist.tracks:
             def _fetch_sp():
@@ -380,7 +381,8 @@ class PlaylistsTab(ctk.CTkFrame):
                     full_p = spotify_manager.fetch_by_url(url)
                     self.after(0, lambda: TrackSelectionDialog(self, full_p, self._add_tracks_to_queue))
                 except Exception as e:
-                    self.after(0, lambda: messagebox.showerror("Erreur", f"Échec du chargement: {e}"))
+                    err = str(e)
+                    self.after(0, lambda err=err: messagebox.showerror("Erreur", f"Échec du chargement: {err}"))
             threading.Thread(target=_fetch_sp, daemon=True).start()
         else:
             TrackSelectionDialog(self, playlist, self._add_tracks_to_queue)
@@ -393,7 +395,8 @@ class PlaylistsTab(ctk.CTkFrame):
                     full_alb = fetch_album_tracks(playlist.id, playlist.name, playlist.owner, playlist.cover_url)
                     self.after(0, lambda: self._add_tracks_to_queue(full_alb.tracks, full_alb.name))
                 except Exception as e:
-                    self.after(0, lambda: messagebox.showerror("Erreur", f"Impossible de télécharger l'album: {e}"))
+                    err = str(e)
+                    self.after(0, lambda err=err: messagebox.showerror("Erreur", f"Impossible de télécharger l'album: {err}"))
             threading.Thread(target=_fetch_and_dl, daemon=True).start()
         elif not playlist.tracks:
             def _fetch():
@@ -402,13 +405,14 @@ class PlaylistsTab(ctk.CTkFrame):
                     full_p = spotify_manager.fetch_by_url(url)
                     self.after(0, lambda: self._add_tracks_to_queue(full_p.tracks, full_p.name))
                 except Exception as e:
-                    self.after(0, lambda: messagebox.showerror("Erreur", f"Échec du chargement: {e}"))
+                    err = str(e)
+                    self.after(0, lambda err=err: messagebox.showerror("Erreur", f"Échec du chargement: {err}"))
             threading.Thread(target=_fetch, daemon=True).start()
         else:
             self._add_tracks_to_queue(playlist.tracks, playlist.name)
 
     def _add_tracks_to_queue(self, tracks: List[SpotifyTrack], playlist_name: str):
-        added = queue_manager.add_tracks(tracks, playlist_name)
+        queue_manager.add_tracks(tracks, playlist_name)
         queue_manager.start()
         if self.on_switch_to_queue:
             self.on_switch_to_queue()
@@ -441,7 +445,8 @@ class PlaylistsTab(ctk.CTkFrame):
                     self._explore_item(playlist_obj)
                 self.after(0, _done)
             except Exception as e:
-                self.after(0, lambda: messagebox.showerror("Erreur de chargement", f"Impossible de charger ce lien Spotify :\n\n{e}"))
+                err = str(e)
+                self.after(0, lambda err=err: messagebox.showerror("Erreur de chargement", f"Impossible de charger ce lien Spotify :\n\n{err}"))
             finally:
                 self.after(0, lambda: self.load_url_btn.configure(state="normal", text="📥 Charger & Explorer"))
 

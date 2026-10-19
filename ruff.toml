@@ -1,0 +1,7 @@
+target-version = "py311"
+line-length = 120
+extend-exclude = [".venv"]
+
+[lint]
+# Erreurs réelles uniquement (syntaxe, noms indéfinis, imports inutilisés, variables mortes)
+select = ["E9", "F"]

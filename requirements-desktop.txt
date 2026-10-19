@@ -1,0 +1,4 @@
+# Application desktop CustomTkinter (Windows) et packaging .exe
+-r requirements.txt
+customtkinter>=6.0.0
+pyinstaller>=6.0.0

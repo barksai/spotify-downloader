@@ -2,12 +2,11 @@
 Onglet 2 : File de Téléchargement, Suivi de Progression et Console de Logs.
 """
 import os
-import subprocess
 import time
 from typing import Dict
 import customtkinter as ctk
 
-from ...queue_manager import queue_manager, DownloadTask, TaskStatus
+from ...queue_manager import queue_manager, DownloadTask
 from ...config import config
 from ..components.track_row import TrackRow
 

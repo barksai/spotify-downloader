@@ -2,6 +2,21 @@
 // Spotify & Album MP3 Downloader - Frontend SPA Client (JavaScript)
 // ==========================================================================
 
+// Redirection vers la page de connexion si la session a expiré (APP_PASSWORD)
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+    const resp = await nativeFetch(...args);
+    if (resp.status === 401 && !String(args[0]).startsWith("/api/login")) {
+        window.location.href = "/login";
+    }
+    return resp;
+};
+
+async function logout() {
+    await fetch("/api/logout", { method: "POST" });
+    window.location.href = "/login";
+}
+
 let currentSearchMode = "album"; // "album" ou "url"
 let currentModalAlbum = null;
 let eventSource = null;
@@ -106,7 +121,7 @@ async function handleMainSearch() {
             });
             if (!resp.ok) {
                 const err = await resp.json();
-                throw new Error(err.detail || "Erreur lors de l'analyse du lien.");
+                throw new Error(formatDetail(err.detail) || "Erreur lors de l'analyse du lien.");
             }
             const playlist = await resp.json();
             title.textContent = `Résultat du lien : ${playlist.name}`;
@@ -183,7 +198,7 @@ async function exploreItem(item, triggerBtn) {
             const resp = await fetch(`/api/album/${encodeURIComponent(item.id)}?name=${encodeURIComponent(item.name)}&artist=${encodeURIComponent(item.owner)}&cover_url=${encodeURIComponent(item.cover_url || '')}`);
             if (!resp.ok) {
                 const err = await resp.json();
-                throw new Error(err.detail || "Erreur HTTP " + resp.status);
+                throw new Error(formatDetail(err.detail) || "Erreur HTTP " + resp.status);
             }
             albumData = await resp.json();
         } catch (e) {
@@ -218,7 +233,7 @@ async function downloadFullItem(item, triggerBtn) {
             const resp = await fetch(`/api/album/${encodeURIComponent(item.id)}?name=${encodeURIComponent(item.name)}&artist=${encodeURIComponent(item.owner)}&cover_url=${encodeURIComponent(item.cover_url || '')}`);
             if (!resp.ok) {
                 const err = await resp.json();
-                throw new Error(err.detail || "Erreur HTTP " + resp.status);
+                throw new Error(formatDetail(err.detail) || "Erreur HTTP " + resp.status);
             }
             const data = await resp.json();
             tracks = data.tracks;
@@ -255,7 +270,7 @@ async function downloadFullItem(item, triggerBtn) {
             window.switchTab("tab-queue");
         } else {
             const err = await resp.json();
-            alert("Erreur : " + (err.detail || "Impossible d'ajouter à la file."));
+            alert("Erreur : " + (formatDetail(err.detail) || "Impossible d'ajouter à la file."));
         }
     } catch (e) {
         alert("Erreur d'ajout à la file : " + e.message);
@@ -617,9 +632,13 @@ async function loadSystemInfo() {
             const link = document.createElement("div");
             link.style.cssText = "background: #1e1e1e; padding: 10px 14px; border-radius: 8px; border: 1px solid #333; font-family: monospace; font-size: 0.95rem; color: var(--accent); display: flex; justify-content: space-between; align-items: center;";
             link.innerHTML = `
-                <span>${url}</span>
-                <button class="btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="navigator.clipboard.writeText('${url}'); alert('Adresse copiée !')">Copier</button>
+                <span>${escapeHtml(url)}</span>
+                <button class="btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;">Copier</button>
             `;
+            link.querySelector("button").addEventListener("click", () => {
+                navigator.clipboard.writeText(url);
+                alert("Adresse copiée !");
+            });
             container.appendChild(link);
         });
 
@@ -664,6 +683,11 @@ async function loadSettings() {
             }
         }
         if (!matched) presetSelect.value = "custom";
+
+        const help = document.getElementById("setting-download-dir-help");
+        if (help && s.music_root) {
+            help.textContent = `Chemin absolu sur le serveur, obligatoirement situé dans ${s.music_root} (volume monté).`;
+        }
 
         updateTemplatePreview(s.full_preview);
     } catch (e) {
@@ -732,18 +756,31 @@ async function saveSettings() {
             updateTemplatePreview(res.full_preview);
             loadServerLibrary();
         } else {
-            alert("Erreur : " + (res.detail || "Impossible d'enregistrer les paramètres."));
+            alert("Erreur : " + (formatDetail(res.detail) || "Impossible d'enregistrer les paramètres."));
         }
     } catch (e) {
         alert("Erreur lors de l'enregistrement: " + e.message);
     }
 }
 
+// Les erreurs de validation FastAPI (422) renvoient une liste d'objets dans "detail"
+function formatDetail(detail) {
+    if (!detail) return "";
+    if (Array.isArray(detail)) {
+        return detail.map(d => `${(d.loc || []).slice(1).join(".")}: ${d.msg}`).join("\n");
+    }
+    return String(detail);
+}
+
+// Échappe aussi les guillemets : le résultat est utilisé dans des attributs HTML (title="...")
 function escapeHtml(text) {
-    if (!text) return "";
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
+    if (text === null || text === undefined) return "";
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 }
 
 // ==========================================================================
@@ -785,7 +822,7 @@ async function uploadCookiesFile() {
             const nameEl = document.getElementById("cookies-file-name");
             if (nameEl) nameEl.textContent = "cookies.txt (actif)";
         } else {
-            alert("Erreur : " + (res.detail || "Échec du téléversement"));
+            alert("Erreur : " + (formatDetail(res.detail) || "Échec du téléversement"));
         }
     } catch (e) {
         alert("Erreur de connexion : " + e.message);

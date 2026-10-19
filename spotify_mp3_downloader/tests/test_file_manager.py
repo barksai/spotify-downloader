@@ -1,14 +1,12 @@
-﻿"""
+"""
 Tests unitaires pour le moteur de template et l'assainissement de chemins Windows.
 """
 import os
 import tempfile
-import pytest
 from spotify_mp3_downloader.file_manager import (
     sanitize_component,
     render_template,
     resolve_destination_path,
-    extract_metadata_vars,
     WINDOWS_RESERVED_NAMES
 )
 
@@ -85,9 +83,11 @@ def test_resolve_destination_path_duplicates():
         # 1. Premier calcul (fichier non existant)
         p1, skip1 = resolve_destination_path(tmpdir, tmpl, meta, on_duplicate="skip")
         assert skip1 is False
-        assert os.path.exists(os.path.dirname(p1))
-        
+        # Aucun dossier n'est créé tant que le téléchargement n'a pas abouti
+        assert not os.path.exists(os.path.dirname(p1))
+
         # Créer le fichier fictif
+        os.makedirs(os.path.dirname(p1))
         with open(p1, "w", encoding="utf-8") as f:
             f.write("fake mp3 data")
             
@@ -106,3 +106,23 @@ def test_resolve_destination_path_duplicates():
         assert p4 != p1
         assert "(1)" in p4
         assert skip4 is False
+
+
+def test_resolve_destination_path_respects_reserved_paths():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        meta = {"title": "Same Song", "artist": "Artist", "track_number": 1}
+        tmpl = "{Artist}/{Title}.mp3"
+
+        p1, skip1 = resolve_destination_path(tmpdir, tmpl, meta, on_duplicate="rename")
+        reserved = {os.path.normcase(p1)}
+
+        # Un autre worker vise le même fichier pendant le téléchargement du premier
+        p2, skip2 = resolve_destination_path(tmpdir, tmpl, meta, on_duplicate="rename", reserved_paths=reserved)
+        assert skip2 is False
+        assert p2 != p1 and "(1)" in p2
+
+        _, skip3 = resolve_destination_path(tmpdir, tmpl, meta, on_duplicate="skip", reserved_paths=reserved)
+        assert skip3 is True
+
+        _, skip4 = resolve_destination_path(tmpdir, tmpl, meta, on_duplicate="overwrite", reserved_paths=reserved)
+        assert skip4 is True
