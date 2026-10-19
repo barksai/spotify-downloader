@@ -7,7 +7,7 @@ Ce guide vous explique étape par étape comment déployer l'application sur vot
 
 ### 📦 Fichiers inclus pour Docker
 
-- **`Dockerfile`** : Image basée sur Debian (`python:3.11-slim`) avec **FFmpeg** préinstallé pour l'encodage MP3 320 kbps et le tagging ID3.
+- **`Dockerfile`** : Image basée sur Debian (`python:3.11-slim`) avec **FFmpeg** préinstallé pour l'encodage MP3 et le tagging ID3.
 - **`.dockerignore`** : Évite d'alourdir l'image avec les fichiers Windows (`.exe`, `.bat`, `.venv`, caches).
 - **`requirements.txt`** : Dépendances Python allégées pour le serveur (sans GUI desktop).
 - **`docker-compose.yml`** : Fichier de configuration prêt à l'emploi pour Portainer.
@@ -21,7 +21,7 @@ L'image est conçue pour être totalement sans état (stateless) en dehors des d
 | Volume Conteneur | Description | Exemple Hôte Debian |
 | :--- | :--- | :--- |
 | `/music` | Destination des musiques téléchargées | `/srv/musique` ou `/mnt/stockage/musique` |
-| `/config` | Fichier `settings.json` persistant | `./config` ou `/opt/spotify-downloader/config` |
+| `/config` | `settings.json`, `cookies.txt` et `queue.json` persistants | `./config` ou `/opt/spotify-downloader/config` |
 
 ---
 
@@ -75,24 +75,24 @@ docker build -t spotify-downloader:latest .
 5. Choisissez **Web editor** et collez le contenu ci-dessous :
 
 ```yaml
-version: "3.8"
-
 services:
   spotify-downloader:
     image: spotify-downloader:latest
     container_name: spotify-downloader
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "9000:8000"
     environment:
       - TZ=Europe/Paris
       - CONFIG_DIR=/config
       - DOWNLOAD_DIR=/music
+      - APP_PASSWORD=choisissez-un-mot-de-passe
+      - PUBLIC_PORT=9000
     volumes:
       - /opt/spotify-downloader/config:/config
       - /srv/musique:/music
 ```
-*(Adaptez `/srv/musique` avec le chemin réel de votre disque de stockage sur Debian).*
+*(Adaptez `/srv/musique` avec le chemin réel de votre disque de stockage sur Debian, et remplacez le mot de passe. Vous pouvez aussi le définir dans la section **Environment variables** de la stack).*
 
 6. Cliquez sur **Deploy the stack** en bas de la page.
 
@@ -107,7 +107,7 @@ Si vous préférez utiliser l'assistant graphique de Portainer sans docker-compo
 3. Remplissez les champs :
    - **Name** : `spotify-downloader`
    - **Image** : `spotify-downloader:latest`
-   - **Port mapping** : Host `8000` -> Container `8000`
+   - **Port mapping** : Host `9000` -> Container `8000`
 4. Dans la section **Advanced container settings** en bas :
    - **Volumes** -> Cliquez sur **+ map additional volume** :
      - Container `/config` -> Bind `/opt/spotify-downloader/config` (Writable)
@@ -116,6 +116,8 @@ Si vous préférez utiliser l'assistant graphique de Portainer sans docker-compo
      - `TZ` = `Europe/Paris`
      - `CONFIG_DIR` = `/config`
      - `DOWNLOAD_DIR` = `/music`
+     - `APP_PASSWORD` = votre mot de passe
+     - `PUBLIC_PORT` = `9000`
    - **Restart policy** : Sélectionnez `Unless stopped`.
 5. Cliquez sur **Deploy the container**.
 
@@ -126,9 +128,10 @@ Si vous préférez utiliser l'assistant graphique de Portainer sans docker-compo
 Une fois le conteneur démarré :
 - Ouvrez votre navigateur sur votre PC, smartphone ou tablette connecté au même réseau :
   ```
-  http://<IP_DE_VOTRE_SERVEUR_DEBIAN>:8000
+  http://<IP_DE_VOTRE_SERVEUR_DEBIAN>:9000
   ```
-- **Configuration** : Dans l'onglet **Paramètres**, le dossier de téléchargement sera automatiquement configuré sur `/music` (qui pointe directement sur votre dossier hôte `/srv/musique`).
+- **Connexion** : saisissez le mot de passe défini dans `APP_PASSWORD`.
+- **Configuration** : Dans l'onglet **Paramètres**, le dossier de téléchargement est automatiquement configuré sur `/music` (qui pointe directement sur votre dossier hôte `/srv/musique`). Pour des raisons de sécurité, il ne peut être déplacé que dans un sous-dossier de `/music`.
 - **Lecteur Audio** : Tous les titres téléchargés seront immédiatement consultables et écoutables en streaming dans l'onglet **Serveur**.
 
 ---

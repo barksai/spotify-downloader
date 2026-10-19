@@ -85,7 +85,6 @@ class App(ctk.CTk):
                 except Exception:
                     pass
 
-            total = stats.get("total", 0)
             in_prog = stats.get("in_progress", 0)
             queued = stats.get("queued", 0)
             active_count = in_prog + queued

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Spotify & Album MP3 Downloader</title>
-    <link rel="stylesheet" href="/static/css/app.css?v=2.0.2">
+    <link rel="stylesheet" href="/static/css/app.css?v={{ version }}">
 </head>
 <body>
 
@@ -13,7 +13,7 @@
         <div class="header-container">
             <div class="logo">
                 <span>🎧</span> Spotify MP3 <span>Downloader</span>
-                <span style="background: rgba(29, 185, 84, 0.15); color: #1db954; font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(29, 185, 84, 0.4); font-weight: 600; margin-left: 8px; vertical-align: middle;">v2.2.2</span>
+                <span style="background: rgba(29, 185, 84, 0.15); color: #1db954; font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(29, 185, 84, 0.4); font-weight: 600; margin-left: 8px; vertical-align: middle;">v{{ version }}</span>
             </div>
 
             <!-- Navigation Desktop -->
@@ -22,6 +22,7 @@
                 <button class="nav-btn" data-tab="tab-queue">📥 File d'attente <span id="queue-badge" class="badge" style="display: none;">0</span></button>
                 <button class="nav-btn" data-tab="tab-library">🎵 Lecteur Serveur</button>
                 <button class="nav-btn" data-tab="tab-settings">⚙️ Paramètres</button>
+                {% if auth_enabled %}<button class="nav-btn" onclick="logout()" title="Se déconnecter">🔒 Déconnexion</button>{% endif %}
             </nav>
         </div>
     </header>
@@ -129,6 +130,15 @@
              ONGLET 4 : PARAMÈTRES DU SERVEUR
              ======================================================== -->
         <section id="tab-settings" class="tab-pane">
+            {% if not auth_enabled %}
+            <div class="queue-header-card" style="margin-bottom: 20px; border: 1px solid rgba(245, 158, 11, 0.5); background: rgba(245, 158, 11, 0.08);">
+                <h2 style="font-size: 1.05rem; margin-bottom: 6px; color: var(--warning);">⚠️ Interface non protégée</h2>
+                <p style="color: var(--text-muted); font-size: 0.85rem; line-height: 1.5;">
+                    Aucun mot de passe n'est configuré : toute personne ayant accès au réseau peut piloter ce serveur.
+                    Définissez la variable d'environnement <code>APP_PASSWORD</code> (docker-compose ou Portainer) puis redémarrez le conteneur.
+                </p>
+            </div>
+            {% endif %}
             
             <!-- Carte Réseau / Smartphone -->
             <div class="queue-header-card" style="margin-bottom: 20px;">
@@ -141,16 +151,16 @@
 
             <!-- Configuration des Chemins et de l'Organisation -->
             <div class="queue-header-card">
-                <h2 style="font-size: 1.25rem; margin-bottom: 16px;">⚙️ Configuration du Serveur Windows</h2>
+                <h2 style="font-size: 1.25rem; margin-bottom: 16px;">⚙️ Configuration du Serveur</h2>
 
                 <!-- Chemin local sur le serveur -->
                 <div style="margin-bottom: 18px;">
                     <label style="font-weight: 700; font-size: 0.95rem; display: block; margin-bottom: 6px;">
                         📂 Dossier local de téléchargement sur le serveur :
                     </label>
-                    <input id="setting-download-dir" type="text" class="search-input" placeholder="ex: D:\Musique ou C:\Users\pierre\Music\SpotifyDownloads">
-                    <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 5px;">
-                        Chemin absolu du dossier sur votre machine Windows où les morceaux seront enregistrés et diffusés en streaming.
+                    <input id="setting-download-dir" type="text" class="search-input" placeholder="ex: /music, D:\Musique ou C:\Users\vous\Music\SpotifyDownloads">
+                    <p id="setting-download-dir-help" style="color: var(--text-muted); font-size: 0.8rem; margin-top: 5px;">
+                        Chemin absolu du dossier sur le serveur où les morceaux seront enregistrés et diffusés en streaming.
                     </p>
                 </div>
 
@@ -181,12 +191,15 @@
                     <div style="flex: 1; min-width: 220px;">
                         <label style="font-weight: 600; font-size: 0.9rem; display: block; margin-bottom: 6px;">Qualité Audio MP3 :</label>
                         <select id="setting-audio-quality" class="search-input">
-                            <option value="320k">320 kbps (CBR Haute Fidélité)</option>
+                            <option value="320k">320 kbps (CBR)</option>
                             <option value="256k">256 kbps (Très haute qualité)</option>
                             <option value="192k">192 kbps (Standard)</option>
                             <option value="128k">128 kbps (Économie d'espace)</option>
                             <option value="V0">V0 (VBR Dynamique)</option>
                         </select>
+                        <p style="color: var(--text-muted); font-size: 0.75rem; margin-top: 5px; line-height: 1.4;">
+                            La source YouTube est déjà compressée (~128-160 kbps) : un débit plus élevé n'améliore pas le son, il évite seulement d'ajouter des pertes.
+                        </p>
                     </div>
 
                     <div style="width: 150px;">
@@ -217,7 +230,7 @@
 
                 <div style="margin-top: 24px; padding: 14px 16px; border-radius: 8px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
                     <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">ℹ️ Version & Statut Système</div>
-                    <div>• Version de l'application : <strong style="color: var(--accent);">v2.2.2</strong></div>
+                    <div>• Version de l'application : <strong style="color: var(--accent);">v{{ version }}</strong></div>
                     <div>• Anti-bridage & Réseau : <strong style="color: var(--accent);">HLS m3u8 + Parallel Frags (5x) + MTU 1350 + Deno EJS</strong></div>
                     <div>• Métadonnées : <strong style="color: var(--accent);">ID3v2.3 conforme Jellyfin & Picard (TPE2, cover.jpg)</strong></div>
                 </div>
@@ -291,6 +304,6 @@
         </div>
     </div>
 
-    <script src="/static/js/app.js?v=2.0.2"></script>
+    <script src="/static/js/app.js?v={{ version }}"></script>
 </body>
 </html>

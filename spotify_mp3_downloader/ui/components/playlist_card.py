@@ -3,7 +3,7 @@ Composant visuel pour l'affichage d'une carte de playlist ou d'album.
 """
 import io
 import threading
-from typing import Callable, Optional
+from typing import Callable
 import customtkinter as ctk
 from PIL import Image
 import requests

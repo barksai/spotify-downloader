@@ -13,13 +13,13 @@ if exist "%~dp0.venv\Scripts\python.exe" (
 )
 
 :: 2. Verification automatique des dependances requises
-%PYTHON_EXE% -c "import fastapi, uvicorn, yt_dlp, mutagen, requests, spotipy" 2>nul
+%PYTHON_EXE% -c "import fastapi, uvicorn, yt_dlp, mutagen, requests, spotipy, PIL, pydantic" 2>nul
 if %errorlevel% neq 0 (
     echo ====================================================================
     echo   Installation automatique des dependances sur ce PC...
     echo   (Cette operation n'a lieu qu'une seule fois au premier lancement)
     echo ====================================================================
-    %PYTHON_EXE% -m pip install fastapi "uvicorn[standard]" yt-dlp mutagen requests jinja2 python-multipart spotipy
+    %PYTHON_EXE% -m pip install -r "%~dp0requirements.txt"
     echo.
 )
 
@@ -27,8 +27,6 @@ if %errorlevel% neq 0 (
 set RUN_SCRIPT=""
 if exist "%~dp0run_server.py" (
     set RUN_SCRIPT="%~dp0run_server.py"
-) else if exist "%~dp0spotify_mp3_downloader\run_server.py" (
-    set RUN_SCRIPT="%~dp0spotify_mp3_downloader\run_server.py"
 )
 
 :: 4. Lancement du serveur Web

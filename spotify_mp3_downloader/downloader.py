@@ -1,6 +1,6 @@
 """
 Spotify MP3 Downloader - Audio Acquisition & ID3 Tagging Engine
-Recherche YouTube Music / YouTube par ISRC / Titre + Artiste, téléchargement audio,
+Recherche YouTube par ISRC / Titre + Artiste, téléchargement audio,
 encodage FFmpeg 320 kbps et injection des métadonnées ID3v2.3 avec pochette HD via Mutagen.
 """
 import os
@@ -8,7 +8,7 @@ import shutil
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Optional, Callable, Dict, Any
+from typing import Optional, Callable
 
 import requests
 import yt_dlp
@@ -21,6 +21,19 @@ from .spotify_client import SpotifyTrack
 from .config import config
 
 
+QUALITY_LABELS = {
+    "320k": "MP3 320 kbps",
+    "256k": "MP3 256 kbps",
+    "192k": "MP3 192 kbps",
+    "128k": "MP3 128 kbps",
+    "V0": "MP3 VBR V0",
+}
+
+
+def quality_label(audio_quality: str) -> str:
+    return QUALITY_LABELS.get(audio_quality, f"MP3 {audio_quality}")
+
+
 class AudioDownloader:
     """Moteur de téléchargement audio et de tagging ID3."""
 
@@ -30,8 +43,8 @@ class AudioDownloader:
 
     def _get_best_youtube_url(self, track: SpotifyTrack, progress_cb: Optional[Callable[[str], None]] = None) -> Optional[str]:
         """
-        Recherche intelligente sur YouTube / YouTube Music :
-        1. Priorité au code ISRC officiel studio (le matching le plus fiable).
+        Recherche intelligente sur YouTube :
+        1. Priorité au code ISRC (présent dans la description des vidéos « Provided to YouTube »).
         2. Fallback avec Artiste + Titre + Audio.
         3. Fallback standard Artiste + Titre.
         Valide la concordance de durée pour éviter les remix, clips rallongés ou lives.
@@ -47,7 +60,7 @@ class AudioDownloader:
 
         queries = []
         if track.isrc:
-            queries.append(f"ytsearch3:isrc:{track.isrc}")
+            queries.append(f'ytsearch3:"{track.isrc}"')
         queries.append(f"ytsearch5:{track.artist} - {track.title} Audio")
         queries.append(f"ytsearch5:{track.artist} - {track.title} Official Audio")
         queries.append(f"ytsearch5:{track.artist} - {track.title}")
@@ -181,7 +194,7 @@ class AudioDownloader:
         }
 
         # Détection automatique de cookies.txt si présent dans le dossier /config
-        cookie_file = Path(os.environ.get("CONFIG_DIR", "/config")) / "cookies.txt"
+        cookie_file = config.cookies_path
         if cookie_file.exists():
             ydl_opts["cookiefile"] = str(cookie_file)
 
@@ -192,6 +205,9 @@ class AudioDownloader:
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([video_url])
+        except InterruptedError:
+            self._cleanup(temp_base, temp_mp3)
+            raise
         except Exception as e:
             self._cleanup(temp_base, temp_mp3)
             raise RuntimeError(f"Erreur de téléchargement/conversion audio: {e}")
@@ -202,7 +218,11 @@ class AudioDownloader:
 
         # 3. Injection des tags ID3v2.3
         if progress_cb:
-            progress_cb("Injection des métadonnées ID3 & pochette...", 95.0)
+            try:
+                progress_cb("Injection des métadonnées ID3 & pochette...", 95.0)
+            except InterruptedError:
+                self._cleanup(temp_base, temp_mp3)
+                raise
 
         cover_bytes = None
         try:
@@ -212,7 +232,11 @@ class AudioDownloader:
 
         # 4. Déplacement vers le dossier final
         if progress_cb:
-            progress_cb("Finalisation...", 98.0)
+            try:
+                progress_cb("Finalisation...", 98.0)
+            except InterruptedError:
+                self._cleanup(temp_base, temp_mp3)
+                raise
 
         try:
             target_dir = os.path.dirname(output_filepath)

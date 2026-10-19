@@ -12,6 +12,11 @@ services:
       - TZ=Europe/Paris
       - CONFIG_DIR=/config
       - DOWNLOAD_DIR=/music
+      # Mot de passe de l'interface Web (fortement recommandé). Laissez vide pour désactiver.
+      - APP_PASSWORD=${APP_PASSWORD:-}
+      # Port et adresse affichés dans l'interface (doivent correspondre au mapping "ports" ci-dessous)
+      - PUBLIC_PORT=9000
+      # - PUBLIC_HOST=192.168.1.10
     volumes:
       # Dossier persistant pour la configuration (settings.json, cookies.txt)
       - ./config:/config

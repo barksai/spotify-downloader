@@ -2,6 +2,7 @@
 Tests unitaires pour le moteur de téléchargement et l'injection ID3v2 Mutagen.
 """
 import os
+import shutil
 import tempfile
 import subprocess
 import pytest
@@ -9,7 +10,7 @@ from mutagen.mp3 import MP3
 from mutagen.id3 import ID3
 
 from spotify_mp3_downloader.spotify_client import SpotifyTrack
-from spotify_mp3_downloader.downloader import AudioDownloader
+from spotify_mp3_downloader.downloader import AudioDownloader, quality_label
 
 
 def create_silent_mp3(filepath: str):
@@ -21,6 +22,7 @@ def create_silent_mp3(filepath: str):
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
 
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg requis pour générer un MP3 de test")
 def test_mutagen_id3_tagging():
     with tempfile.TemporaryDirectory() as tmpdir:
         test_mp3 = os.path.join(tmpdir, "test_audio.mp3")
@@ -76,3 +78,7 @@ def test_save_folder_cover_for_jellyfin():
         with open(os.path.join(tmpdir, "cover.jpg"), "rb") as f:
             assert f.read() == dummy_cover
 
+
+def test_quality_label():
+    assert quality_label("320k") == "MP3 320 kbps"
+    assert quality_label("V0") == "MP3 VBR V0"

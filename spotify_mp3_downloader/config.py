@@ -5,7 +5,7 @@ Gère la persistance et les valeurs par défaut des réglages utilisateur dans %
 import os
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 def _get_default_download_dir() -> str:
     env_download = os.getenv("DOWNLOAD_DIR")
@@ -51,6 +51,23 @@ DEFAULT_SETTINGS = {
     "theme": "dark",
     "color_theme": "green",
 }
+
+ALLOWED_AUDIO_QUALITIES = ("320k", "256k", "192k", "128k", "V0")
+ALLOWED_DUPLICATE_MODES = ("skip", "overwrite", "rename")
+MAX_THREADS_LIMIT = 6
+
+
+def get_music_root() -> Optional[Path]:
+    """
+    Racine autorisée pour le dossier de téléchargement (MUSIC_ROOT, sinon DOWNLOAD_DIR).
+    Sous Docker, DOWNLOAD_DIR=/music : l'API ne peut alors pas pointer en dehors de /music.
+    Retourne None si aucune restriction n'est configurée (usage local Windows).
+    """
+    root = os.getenv("MUSIC_ROOT") or os.getenv("DOWNLOAD_DIR")
+    if not root:
+        return None
+    return Path(os.path.expandvars(os.path.expanduser(root))).resolve()
+
 
 PRESET_TEMPLATES = {
     "Artiste / Album / [Num] Titre": "{Artist}/{Album}/{TrackNumber} - {Title}.mp3",
@@ -102,6 +119,11 @@ class ConfigManager:
         except Exception as e:
             print(f"[ConfigManager] Erreur enregistrement réglages: {e}")
             return False
+
+    @property
+    def cookies_path(self) -> Path:
+        """Emplacement du fichier cookies.txt YouTube (à côté de settings.json)."""
+        return self.app_dir / "cookies.txt"
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.settings.get(key, default if default is not None else DEFAULT_SETTINGS.get(key))

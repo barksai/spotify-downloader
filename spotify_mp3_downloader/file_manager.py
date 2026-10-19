@@ -1,11 +1,10 @@
-﻿"""
+"""
 Spotify MP3 Downloader - File Manager & Windows Path Engine
 Gère l'assainissement des chemins Windows et le rendu des templates de dossiers.
 """
 import os
 import re
-from pathlib import Path
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional, Set
 
 # Caractères strictement interdits dans les noms de fichiers et dossiers Windows
 WINDOWS_FORBIDDEN_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
@@ -166,36 +165,41 @@ def resolve_destination_path(
     template: str,
     metadata: Dict[str, Any],
     playlist_name: str = "Playlist",
-    on_duplicate: str = "skip"
+    on_duplicate: str = "skip",
+    reserved_paths: Optional[Set[str]] = None
 ) -> Tuple[str, bool]:
     """
-    Calcule le chemin absolu final sur le système Windows.
-    Gère la création automatique des dossiers parents et la résolution des doublons.
-    
+    Calcule le chemin absolu final et résout les doublons.
+    Les dossiers ne sont PAS créés ici : le téléchargeur les crée au moment de déplacer
+    le fichier final, ce qui évite de laisser des dossiers vides en cas d'échec.
+
+    `reserved_paths` contient les chemins (normcase) déjà visés par des téléchargements en cours :
+    ils sont traités comme existants pour éviter que deux workers écrivent le même fichier.
+
     Retourne : (absolute_path: str, should_skip: bool)
     """
+    reserved = reserved_paths or set()
+
+    def _taken(path: str) -> bool:
+        return os.path.exists(path) or os.path.normcase(path) in reserved
+
     rel_path = render_template(template, metadata, playlist_name)
     full_path = os.path.abspath(os.path.join(root_dir, rel_path))
-    
-    # Créer les répertoires parents en amont
-    parent_dir = os.path.dirname(full_path)
-    os.makedirs(parent_dir, exist_ok=True)
-    
+
     # Gestion des doublons
-    if os.path.exists(full_path):
-        if on_duplicate == "skip":
-            return full_path, True
-        elif on_duplicate == "overwrite":
+    if _taken(full_path):
+        if on_duplicate == "overwrite" and os.path.normcase(full_path) not in reserved:
             return full_path, False
-        elif on_duplicate == "rename":
+        if on_duplicate == "rename":
             base, ext = os.path.splitext(full_path)
             counter = 1
             new_path = f"{base} ({counter}){ext}"
-            while os.path.exists(new_path):
+            while _taken(new_path):
                 counter += 1
                 new_path = f"{base} ({counter}){ext}"
             return new_path, False
-            
+        return full_path, True
+
     return full_path, False
 
 

@@ -5,7 +5,6 @@ Vérifie la présence de FFmpeg et lance l'interface graphique.
 import sys
 import os
 import shutil
-from tkinter import messagebox
 
 # Ajout du dossier parent au PYTHONPATH pour l'import relatif/absolu
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

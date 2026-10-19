@@ -3,7 +3,7 @@ Composant visuel représentant une ligne de piste dans la file de téléchargeme
 """
 import os
 import subprocess
-from typing import Callable, Optional
+from typing import Callable
 import customtkinter as ctk
 
 from ...queue_manager import DownloadTask, TaskStatus

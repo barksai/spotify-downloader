@@ -57,20 +57,26 @@ def get_local_ips():
 
 def main():
     import uvicorn
+    from spotify_mp3_downloader import __version__
 
-    local_ips = get_local_ips()
+    port = int(os.getenv("PORT", "8000"))
+    public_port = int(os.getenv("PUBLIC_PORT", str(port)))
+    public_host = os.getenv("PUBLIC_HOST", "").strip()
+    local_ips = [h.strip() for h in public_host.split(",") if h.strip()] if public_host else get_local_ips()
 
     print("====================================================================")
     print("   Spotify & Album MP3 Downloader - Serveur Web Auto-heberge")
-    print("   Version : v2.2.2 [Anti-bridage HLS m3u8 + Parallel Frags + Jellyfin]")
+    print(f"   Version : v{__version__}")
     print("====================================================================")
     print()
-    print("  Accès depuis ce PC :           http://localhost:8000")
+    print(f"  Accès depuis ce PC :           http://localhost:{public_port}")
     for ip in local_ips:
-        print(f"  Accès depuis votre smartphone: http://{ip}:8000")
+        print(f"  Accès depuis votre smartphone: http://{ip}:{public_port}")
     print()
     print("--------------------------------------------------------------------")
-    print("  Serveur Web actif sur le port 8000.")
+    print(f"  Serveur Web actif sur le port {port}.")
+    if not os.getenv("APP_PASSWORD"):
+        print("  [!] APP_PASSWORD non défini : interface accessible sans mot de passe.")
     print("  Laissez cette fenêtre ouverte ou minimisée en arrière-plan.")
     print("====================================================================")
     print()
@@ -78,7 +84,7 @@ def main():
     uvicorn.run(
         "spotify_mp3_downloader.web.server:app",
         host="0.0.0.0",
-        port=8000,
+        port=port,
         log_level="info"
     )
 

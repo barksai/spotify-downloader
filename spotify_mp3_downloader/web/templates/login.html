@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Spotify MP3 Downloader</title>
+    <link rel="stylesheet" href="/static/css/app.css?v={{ version }}">
+</head>
+<body style="padding-bottom: 0; justify-content: center; align-items: center;">
+    <form id="login-form" class="queue-header-card" style="width: 100%; max-width: 380px; margin: 16px;">
+        <h2 style="font-size: 1.25rem; margin-bottom: 6px;">🎧 Spotify MP3 Downloader</h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px;">Saisissez le mot de passe du serveur.</p>
+        <input id="login-password" type="password" class="search-input" placeholder="Mot de passe" autocomplete="current-password" required autofocus>
+        <p id="login-error" style="color: var(--danger); font-size: 0.85rem; margin-top: 8px; min-height: 1.2em;"></p>
+        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 8px;">Se connecter</button>
+    </form>
+
+    <script>
+        document.getElementById("login-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const errorEl = document.getElementById("login-error");
+            errorEl.textContent = "";
+            try {
+                const resp = await fetch("/api/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ password: document.getElementById("login-password").value })
+                });
+                if (resp.ok) {
+                    window.location.href = "/";
+                } else {
+                    const data = await resp.json().catch(() => ({}));
+                    errorEl.textContent = data.detail || "Connexion refusée.";
+                }
+            } catch (err) {
+                errorEl.textContent = "Erreur de connexion : " + err.message;
+            }
+        });
+    </script>
+</body>
+</html>

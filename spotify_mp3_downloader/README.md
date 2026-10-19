@@ -1,6 +1,6 @@
 ﻿# 🎧 Spotify MP3 Downloader (Windows)
 
-Application desktop moderne et performante pour **Windows** permettant d'exporter vos playlists, albums et titres **Spotify** au format **MP3 haute fidélité (320 kbps)** avec pochettes HD intégrées et métadonnées ID3v2 complètes, rangés automatiquement dans une **arborescence de dossiers Windows personnalisable**.
+Application desktop moderne et performante pour **Windows** permettant d'exporter vos playlists, albums et titres **Spotify** au format **MP3 (jusqu'à 320 kbps)** avec pochettes HD intégrées et métadonnées ID3v2 complètes, rangés automatiquement dans une **arborescence de dossiers Windows personnalisable**.
 
 ---
 
@@ -8,7 +8,7 @@ Application desktop moderne et performante pour **Windows** permettant d'exporte
 
 - **Authentification Spotify OAuth 2.0 (PKCE Flow)** : Connexion en 1 clic via le navigateur avec serveur de redirection local transparent (`127.0.0.1:8888/callback`). Aucun secret requis.
 - **Support des URLs directes** : Collez n'importe quel lien Spotify (Playlist, Album, Titre individuel, Titres Likés).
-- **Moteur d'acquisition Audio Haute Fidélité** : Recherche intelligente par code **ISRC** et titre/artiste sur YouTube Music via `yt-dlp` et encodage MP3 jusqu'à **320 kbps CBR / V0 VBR** avec `FFmpeg`.
+- **Moteur d'acquisition audio** : Recherche par code **ISRC** et titre/artiste sur YouTube via `yt-dlp` et encodage MP3 jusqu'à **320 kbps CBR / V0 VBR** avec `FFmpeg`.
 - **Tagging ID3v2.3 Complet (`mutagen`)** :
   - Titre, Artistes principaux et collaborateurs (`TPE1`, `TPE2`)
   - Nom de l'album (`TALB`), Année/Date de sortie (`TDRC`, `TYER`)
@@ -52,7 +52,6 @@ spotify_mp3_downloader/
 │
 ├── main.py                   # Point d'entrée de l'application
 ├── build_exe.py              # Script de compilation autonome PyInstaller (.exe)
-├── requirements.txt          # Dépendances Python
 └── README.md                 # Documentation
 ```
 
@@ -62,7 +61,7 @@ spotify_mp3_downloader/
 
 ### 1. Prérequis Système
 - **Windows 10 / 11**
-- **Python 3.10 ou supérieur**
+- **Python 3.11 ou supérieur**
 - **FFmpeg** installé et accessible dans le PATH Windows.
 
 #### Installer FFmpeg sous Windows en 1 commande :
@@ -72,9 +71,9 @@ winget install Gyan.FFmpeg
 ```
 
 ### 2. Installation des dépendances Python
-Dans le dossier du projet :
+À la racine du dépôt :
 ```powershell
-pip install -r requirements.txt
+pip install -r requirements-desktop.txt
 ```
 
 ---

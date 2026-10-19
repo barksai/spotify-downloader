@@ -1,4 +1,5 @@
 .git
+.github
 .gitignore
 .venv
 __pycache__
@@ -6,17 +7,11 @@ __pycache__
 *.pyo
 *.pyd
 .pytest_cache
+.ruff_cache
 dist
 build
 *.spec
 *.exe
 *.bat
-SpotPlayer-v1.0.apk
-archive
-CalculPoutreWinForms
-SolidWorksGearAddIn
-flappy-bird
-leboncoin-ai-agent
-sourdough-calculator
-spotplayer
-tools
+config
+spotify_mp3_downloader/tests

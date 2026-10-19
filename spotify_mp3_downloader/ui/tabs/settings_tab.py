@@ -3,7 +3,6 @@ Onglet 3 : Paramètres de l'application, Moteur de Templates et Qualité Audio.
 """
 import os
 import webbrowser
-from typing import Dict
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 

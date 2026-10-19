@@ -11,7 +11,8 @@ COPY --from=denoland/deno:bin /deno /usr/local/bin/deno
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     CONFIG_DIR=/config \
-    DOWNLOAD_DIR=/music
+    DOWNLOAD_DIR=/music \
+    PORT=8000
 
 # Installer FFmpeg et curl
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -38,7 +39,7 @@ EXPOSE 8000
 
 # Vérification de santé du conteneur (Healthcheck)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/api/settings || exit 1
+    CMD curl -fsS http://localhost:8000/api/health || exit 1
 
 # Démarrage de l'application
 CMD ["python", "run_server.py"]

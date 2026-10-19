@@ -8,28 +8,42 @@ import json
 import socket
 import asyncio
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Literal
 from contextlib import asynccontextmanager
+from urllib.parse import urlparse
 
-from fastapi import FastAPI, Request, Query, Body, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
+from fastapi import FastAPI, Request, Query, HTTPException, UploadFile, File
+from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, ConfigDict, Field
 
-from ..config import config, PRESET_TEMPLATES
-from ..spotify_client import spotify_manager, SpotifyTrack, SpotifyPlaylist
+from .. import __version__
+from ..config import (
+    config, PRESET_TEMPLATES, ALLOWED_AUDIO_QUALITIES, ALLOWED_DUPLICATE_MODES,
+    MAX_THREADS_LIMIT, get_music_root,
+)
+from ..spotify_client import spotify_manager, SpotifyTrack
 from ..album_search import search_albums, fetch_album_tracks
 from ..queue_manager import queue_manager, DownloadTask
 from ..file_manager import preview_template
+from . import auth
 
 # Gestionnaire d'abonnés SSE (Server-Sent Events) pour la progression en direct
 sse_subscribers: set[asyncio.Queue] = set()
 event_loop: Optional[asyncio.AbstractEventLoop] = None
 
+MAX_COOKIES_SIZE = 1024 * 1024  # 1 Mo
+PUBLIC_PATHS = {"/login", "/api/login", "/api/health"}
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
 
 def get_local_ip_addresses() -> List[str]:
     """Détecte les adresses IP locales de la machine pour faciliter l'accès smartphone."""
+    public_host = os.getenv("PUBLIC_HOST", "").strip()
+    if public_host:
+        return [h.strip() for h in public_host.split(",") if h.strip()]
+
     ips = []
     try:
         hostname = socket.gethostname()
@@ -49,6 +63,67 @@ def get_local_ip_addresses() -> List[str]:
     return ips
 
 
+def get_public_port() -> int:
+    """Port visible depuis le réseau (PUBLIC_PORT, ex: 9000 avec le mapping Docker 9000:8000)."""
+    for var in ("PUBLIC_PORT", "PORT"):
+        value = os.getenv(var, "").strip()
+        if value.isdigit():
+            return int(value)
+    return 8000
+
+
+def resolve_download_dir() -> Path:
+    return Path(os.path.expandvars(os.path.expanduser(config.get("download_dir")))).resolve()
+
+
+def task_to_dict(task: DownloadTask) -> Dict[str, Any]:
+    return {
+        "id": task.id,
+        "title": task.track.title,
+        "artist": task.track.artist,
+        "album": task.track.album,
+        "status": task.status.value if hasattr(task.status, "value") else str(task.status),
+        "status_message": task.status_message,
+        "progress": task.progress,
+        "target_path": task.target_path,
+        "error_message": task.error_message
+    }
+
+
+def track_to_dict(t: SpotifyTrack, fallback_album_artist: str) -> Dict[str, Any]:
+    return {
+        "id": t.id,
+        "title": t.title,
+        "artist": t.artist,
+        "artists": t.artists,
+        "album": t.album,
+        "album_artist": t.album_artist or fallback_album_artist,
+        "year": t.year,
+        "release_date": t.release_date,
+        "genre": t.genre,
+        "duration_str": t.duration_str,
+        "duration_ms": t.duration_ms,
+        "track_number": t.track_number,
+        "track_number_padded": t.track_number_padded,
+        "disc_number": t.disc_number,
+        "disc_total": t.disc_total,
+        "total_tracks": t.total_tracks,
+        "isrc": t.isrc,
+        "cover_url": t.cover_url
+    }
+
+
+def playlist_to_dict(playlist) -> Dict[str, Any]:
+    return {
+        "id": playlist.id,
+        "name": playlist.name,
+        "owner": playlist.owner,
+        "total_tracks": playlist.total_tracks,
+        "cover_url": playlist.cover_url,
+        "tracks": [track_to_dict(t, playlist.owner) for t in playlist.tracks]
+    }
+
+
 def broadcast_event(data: Dict[str, Any]):
     """Diffuse un événement en temps réel à tous les clients Web connectés."""
     payload = json.dumps(data)
@@ -61,18 +136,7 @@ def broadcast_event(data: Dict[str, Any]):
 
 def _setup_queue_manager_events(loop: asyncio.AbstractEventLoop):
     def _on_task_update(task: DownloadTask):
-        task_data = {
-            "id": task.id,
-            "title": task.track.title,
-            "artist": task.track.artist,
-            "album": task.track.album,
-            "status": task.status.value if hasattr(task.status, "value") else str(task.status),
-            "status_message": task.status_message,
-            "progress": task.progress,
-            "target_path": task.target_path,
-            "error_message": task.error_message
-        }
-        loop.call_soon_threadsafe(broadcast_event, {"type": "task_update", "task": task_data})
+        loop.call_soon_threadsafe(broadcast_event, {"type": "task_update", "task": task_to_dict(task)})
 
     def _on_stats_update(stats: Dict[str, Any]):
         loop.call_soon_threadsafe(broadcast_event, {"type": "stats", "stats": stats})
@@ -90,6 +154,16 @@ async def lifespan(app: FastAPI):
     global event_loop
     event_loop = asyncio.get_running_loop()
     _setup_queue_manager_events(event_loop)
+
+    if not auth.auth_enabled():
+        print("[Sécurité] APP_PASSWORD n'est pas défini : l'interface Web est accessible SANS mot de passe "
+              "par toute personne du réseau. Définissez APP_PASSWORD pour la protéger.")
+
+    # Reprise de la file d'attente sauvegardée avant le dernier arrêt
+    if os.getenv("QUEUE_PERSISTENCE", "1") != "0":
+        restored = queue_manager.load_persisted(config.app_dir / "queue.json")
+        if restored:
+            queue_manager.start()
 
     # Désactivation automatique du QuickEdit Mode sous Windows
     if sys.platform == "win32":
@@ -111,18 +185,31 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Spotify & Album MP3 Downloader",
     description="Application Web auto-hébergeable pour télécharger et écouter en streaming albums et playlists",
-    version="2.0.0",
+    version=__version__,
     lifespan=lifespan
 )
 
-# Configuration CORS pour accès réseau local
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+@app.middleware("http")
+async def security_middleware(request: Request, call_next):
+    """
+    1. Bloque les requêtes de modification provenant d'un autre site (protection CSRF).
+    2. Exige une session valide lorsque APP_PASSWORD est défini.
+    """
+    path = request.url.path
+
+    if request.method not in SAFE_METHODS:
+        origin = request.headers.get("origin")
+        if origin and urlparse(origin).netloc != request.headers.get("host", ""):
+            return JSONResponse({"detail": "Origine de la requête refusée."}, status_code=403)
+
+    if path in PUBLIC_PATHS or path.startswith("/static/") or auth.is_authenticated(request):
+        return await call_next(request)
+
+    if path.startswith("/api/"):
+        return JSONResponse({"detail": "Authentification requise."}, status_code=401)
+    return RedirectResponse("/login", status_code=303)
+
 
 BASE_DIR = Path(__file__).resolve().parent
 templates_dir = BASE_DIR / "templates"
@@ -133,13 +220,110 @@ templates = Jinja2Templates(directory=str(templates_dir))
 
 
 # =========================================================================
-# ROUTES FRONTEND
+# MODÈLES DE REQUÊTES (validation des entrées)
+# =========================================================================
+
+class TrackIn(BaseModel):
+    model_config = ConfigDict(extra="ignore", coerce_numbers_to_str=True)
+
+    id: str
+    title: str = "Titre inconnu"
+    artist: str = "Artiste inconnu"
+    artists: Optional[List[str]] = None
+    album: Optional[str] = None
+    album_artist: Optional[str] = None
+    year: Optional[str] = ""
+    release_date: Optional[str] = ""
+    track_number: int = Field(1, ge=0)
+    track_number_padded: Optional[str] = None
+    disc_number: int = Field(1, ge=0)
+    disc_total: Optional[int] = Field(1, ge=0)
+    total_tracks: Optional[int] = Field(None, ge=0)
+    duration_ms: int = Field(0, ge=0)
+    duration_str: Optional[str] = "0:00"
+    genre: Optional[str] = None
+    isrc: Optional[str] = None
+    cover_url: Optional[str] = None
+
+
+class QueueAddIn(BaseModel):
+    playlist_name: str = "Album"
+    playlist_owner: str = ""
+    tracks: List[TrackIn] = Field(default_factory=list, max_length=5000)
+
+
+class QueueActionIn(BaseModel):
+    action: Literal["pause", "resume", "retry", "clear_completed", "clear_all", "cancel"]
+    task_id: str = ""
+
+
+class ResolveIn(BaseModel):
+    url: str = ""
+
+
+class SettingsIn(BaseModel):
+    download_dir: Optional[str] = None
+    filename_template: Optional[str] = Field(None, max_length=300)
+    audio_quality: Optional[Literal[ALLOWED_AUDIO_QUALITIES]] = None
+    max_threads: Optional[int] = Field(None, ge=1, le=MAX_THREADS_LIMIT)
+    on_duplicate: Optional[Literal[ALLOWED_DUPLICATE_MODES]] = None
+
+
+class LoginIn(BaseModel):
+    password: str = ""
+
+
+# =========================================================================
+# ROUTES FRONTEND & AUTHENTIFICATION
 # =========================================================================
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request):
     """Page principale SPA responsive."""
-    return templates.TemplateResponse(request, "index.html")
+    return templates.TemplateResponse(request, "index.html", {
+        "version": __version__,
+        "auth_enabled": auth.auth_enabled(),
+    })
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def get_login(request: Request):
+    if not auth.auth_enabled() or auth.is_authenticated(request):
+        return RedirectResponse("/", status_code=303)
+    return templates.TemplateResponse(request, "login.html", {"version": __version__})
+
+
+@app.post("/api/login")
+async def api_login(request: Request, payload: LoginIn):
+    if not auth.auth_enabled():
+        return {"status": "ok"}
+    if not auth.check_password(payload.password):
+        await asyncio.sleep(1.0)  # Ralentit les tentatives par force brute
+        raise HTTPException(status_code=401, detail="Mot de passe incorrect.")
+
+    response = JSONResponse({"status": "ok"})
+    response.set_cookie(
+        auth.SESSION_COOKIE,
+        auth.session_token(),
+        max_age=auth.SESSION_MAX_AGE,
+        httponly=True,
+        samesite="strict",
+        secure=request.url.scheme == "https",
+    )
+    return response
+
+
+@app.post("/api/logout")
+async def api_logout():
+    response = JSONResponse({"status": "ok"})
+    response.delete_cookie(auth.SESSION_COOKIE)
+    return response
+
+
+@app.get("/api/health")
+async def api_health():
+    """Vérification de santé publique (utilisée par le HEALTHCHECK Docker)."""
+    return {"status": "ok", "version": __version__}
 
 
 # =========================================================================
@@ -150,17 +334,21 @@ async def get_index(request: Request):
 async def get_system_info():
     """Informations de connexion pour accès depuis smartphone et PC."""
     local_ips = get_local_ip_addresses()
+    port = get_public_port()
+    music_root = get_music_root()
     return {
         "hostname": socket.gethostname(),
         "local_ips": local_ips,
-        "port": 8000,
-        "access_urls": [f"http://{ip}:8000" for ip in local_ips],
-        "version": "2.2.2",
+        "port": port,
+        "access_urls": [f"http://{ip}:{port}" for ip in local_ips],
+        "version": __version__,
+        "auth_enabled": auth.auth_enabled(),
+        "music_root": str(music_root) if music_root else None,
         "download_dir": config.get("download_dir"),
         "audio_quality": config.get("audio_quality", "320k"),
         "max_threads": config.get("max_threads", 3),
         "preset_templates": PRESET_TEMPLATES,
-        "has_cookies": (Path(os.environ.get("CONFIG_DIR", "/config")) / "cookies.txt").exists()
+        "has_cookies": config.cookies_path.exists()
     }
 
 
@@ -169,7 +357,7 @@ async def get_system_info():
 # =========================================================================
 
 @app.get("/api/search")
-async def api_search(q: str = Query(..., description="Terme de recherche")):
+async def api_search(q: str = Query(..., description="Terme de recherche", max_length=200)):
     """Recherche d'albums via Deezer et iTunes (100% gratuit, sans clé)."""
     results = await asyncio.to_thread(search_albums, q, 15)
     return [
@@ -194,79 +382,21 @@ async def api_get_album_details(
 ):
     """Récupère la liste complète des morceaux d'un album avec durées et numéros de piste."""
     album = await asyncio.to_thread(fetch_album_tracks, album_id, name, artist, cover_url)
-    return {
-        "id": album.id,
-        "name": album.name,
-        "owner": album.owner,
-        "total_tracks": album.total_tracks,
-        "cover_url": album.cover_url,
-        "tracks": [
-            {
-                "id": t.id,
-                "title": t.title,
-                "artist": t.artist,
-                "artists": t.artists,
-                "album": t.album,
-                "album_artist": t.album_artist or album.owner,
-                "year": t.year,
-                "release_date": t.release_date,
-                "genre": getattr(t, "genre", None),
-                "duration_str": t.duration_str,
-                "duration_ms": t.duration_ms,
-                "track_number": t.track_number,
-                "track_number_padded": t.track_number_padded,
-                "disc_number": t.disc_number,
-                "disc_total": getattr(t, "disc_total", 1),
-                "total_tracks": t.total_tracks,
-                "isrc": t.isrc,
-                "cover_url": t.cover_url
-            }
-            for t in album.tracks
-        ]
-    }
+    return playlist_to_dict(album)
 
 
 @app.post("/api/spotify/resolve")
-async def api_resolve_spotify_url(payload: Dict[str, str] = Body(...)):
+async def api_resolve_spotify_url(payload: ResolveIn):
     """Analyse et extrait les pistes d'une URL Spotify (playlist, album ou titre)."""
-    url = payload.get("url", "").strip()
+    url = payload.url.strip()
     if not url:
         raise HTTPException(status_code=400, detail="Veuillez fournir une URL Spotify.")
 
     try:
         playlist = await asyncio.to_thread(spotify_manager.fetch_by_url, url)
-        return {
-            "id": playlist.id,
-            "name": playlist.name,
-            "owner": playlist.owner,
-            "total_tracks": playlist.total_tracks,
-            "cover_url": playlist.cover_url,
-            "tracks": [
-                {
-                    "id": t.id,
-                    "title": t.title,
-                    "artist": t.artist,
-                    "artists": t.artists,
-                    "album": t.album,
-                    "album_artist": t.album_artist or playlist.owner,
-                    "year": t.year,
-                    "release_date": t.release_date,
-                    "genre": getattr(t, "genre", None),
-                    "duration_str": t.duration_str,
-                    "duration_ms": t.duration_ms,
-                    "track_number": t.track_number,
-                    "track_number_padded": t.track_number_padded,
-                    "disc_number": t.disc_number,
-                    "disc_total": getattr(t, "disc_total", 1),
-                    "total_tracks": t.total_tracks,
-                    "isrc": t.isrc,
-                    "cover_url": t.cover_url
-                }
-                for t in playlist.tracks
-            ]
-        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    return playlist_to_dict(playlist)
 
 
 # =========================================================================
@@ -274,38 +404,35 @@ async def api_resolve_spotify_url(payload: Dict[str, str] = Body(...)):
 # =========================================================================
 
 @app.post("/api/queue/add")
-async def api_queue_add(payload: Dict[str, Any] = Body(...)):
+async def api_queue_add(payload: QueueAddIn):
     """Ajoute des pistes ou un album entier à la file de téléchargement."""
-    playlist_name = payload.get("playlist_name", "Album")
-    playlist_owner = payload.get("playlist_owner", "")
-    raw_tracks = payload.get("tracks", [])
-    if not raw_tracks:
+    playlist_name = payload.playlist_name
+    if not payload.tracks:
         raise HTTPException(status_code=400, detail="Aucune piste à ajouter.")
 
     tracks: List[SpotifyTrack] = []
-    for t in raw_tracks:
-        artist_val = t.get("artist", "Artiste inconnu")
-        artists_val = t.get("artists") or [artist_val]
-        album_artist_val = t.get("album_artist") or playlist_owner or artist_val
+    for t in payload.tracks:
+        artists_val = t.artists or [t.artist]
+        track_number = t.track_number or 1
         tracks.append(SpotifyTrack(
-            id=str(t.get("id")),
-            title=t.get("title", "Titre inconnu"),
-            artist=artist_val,
+            id=t.id,
+            title=t.title,
+            artist=t.artist,
             artists=artists_val,
-            album=t.get("album", playlist_name),
-            album_artist=album_artist_val,
-            year=str(t.get("year", "")),
-            release_date=str(t.get("release_date", "")),
-            track_number=int(t.get("track_number", 1)),
-            track_number_padded=str(t.get("track_number_padded") or f"{int(t.get('track_number', 1)):02d}"),
-            disc_number=int(t.get("disc_number", 1)),
-            disc_total=int(t.get("disc_total", 1) or 1),
-            total_tracks=int(t.get("total_tracks") or len(raw_tracks)),
-            duration_ms=int(t.get("duration_ms", 0)),
-            duration_str=str(t.get("duration_str", "0:00")),
-            genre=t.get("genre"),
-            isrc=t.get("isrc"),
-            cover_url=t.get("cover_url"),
+            album=t.album or playlist_name,
+            album_artist=t.album_artist or payload.playlist_owner or t.artist,
+            year=t.year or "",
+            release_date=t.release_date or "",
+            track_number=track_number,
+            track_number_padded=t.track_number_padded or f"{track_number:02d}",
+            disc_number=t.disc_number or 1,
+            disc_total=t.disc_total or 1,
+            total_tracks=t.total_tracks or len(payload.tracks),
+            duration_ms=t.duration_ms,
+            duration_str=t.duration_str or "0:00",
+            genre=t.genre,
+            isrc=t.isrc,
+            cover_url=t.cover_url,
             playlist_name=playlist_name
         ))
 
@@ -317,28 +444,13 @@ async def api_queue_add(payload: Dict[str, Any] = Body(...)):
 @app.get("/api/queue")
 async def api_get_queue():
     """Retourne la liste complète des tâches et statistiques de la file."""
-    stats = queue_manager.get_stats()
-    tasks_data = []
-    for t in queue_manager.tasks:
-        tasks_data.append({
-            "id": t.id,
-            "title": t.track.title,
-            "artist": t.track.artist,
-            "album": t.track.album,
-            "status": t.status.value if hasattr(t.status, "value") else str(t.status),
-            "status_message": t.status_message,
-            "progress": t.progress,
-            "target_path": t.target_path,
-            "error_message": t.error_message
-        })
-    return {"stats": stats, "tasks": tasks_data}
+    return {"stats": queue_manager.get_stats(), "tasks": [task_to_dict(t) for t in list(queue_manager.tasks)]}
 
 
 @app.post("/api/queue/action")
-async def api_queue_action(payload: Dict[str, str] = Body(...)):
-    """Contrôle de la file d'attente (pause, resume, retry, clear)."""
-    action = payload.get("action", "")
-    task_id = payload.get("task_id", "")
+async def api_queue_action(payload: QueueActionIn):
+    """Contrôle de la file d'attente (pause, resume, retry, clear, cancel)."""
+    action = payload.action
 
     if action == "pause":
         queue_manager.pause()
@@ -350,10 +462,10 @@ async def api_queue_action(payload: Dict[str, str] = Body(...)):
         queue_manager.clear_completed()
     elif action == "clear_all":
         queue_manager.clear_all()
-    elif action == "cancel" and task_id:
-        queue_manager.cancel_task(task_id)
-    else:
-        raise HTTPException(status_code=400, detail="Action non reconnue.")
+    elif action == "cancel":
+        if not payload.task_id:
+            raise HTTPException(status_code=400, detail="task_id requis pour annuler une tâche.")
+        queue_manager.cancel_task(payload.task_id)
 
     return {"status": "ok", "action": action, "stats": queue_manager.get_stats()}
 
@@ -368,7 +480,7 @@ async def api_queue_events(request: Request):
         try:
             initial_stats = queue_manager.get_stats()
             yield f"data: {json.dumps({'type': 'stats', 'stats': initial_stats})}\n\n"
-            
+
             while True:
                 if await request.is_disconnected():
                     break
@@ -391,14 +503,7 @@ async def api_queue_events(request: Request):
 # ROUTES API : BIBLIOTHÈQUE DU SERVEUR & STREAMING AUDIO
 # =========================================================================
 
-@app.get("/api/library")
-async def api_get_library():
-    """Scanne le dossier local de téléchargement configuré sur le serveur."""
-    download_dir_str = config.get("download_dir")
-    download_dir = Path(os.path.expandvars(os.path.expanduser(download_dir_str)))
-    if not download_dir.exists():
-        return {"download_dir": str(download_dir), "albums": [], "total_tracks": 0}
-
+def _scan_library(download_dir: Path) -> Dict[str, Any]:
     albums_map: Dict[str, Dict[str, Any]] = {}
     total_tracks = 0
 
@@ -437,17 +542,30 @@ async def api_get_library():
     }
 
 
+@app.get("/api/library")
+async def api_get_library():
+    """Scanne le dossier local de téléchargement configuré sur le serveur."""
+    download_dir = resolve_download_dir()
+    if not download_dir.exists():
+        return {"download_dir": str(download_dir), "albums": [], "total_tracks": 0}
+    return await asyncio.to_thread(_scan_library, download_dir)
+
+
 @app.get("/api/stream")
 async def api_stream_file(path: str = Query(..., description="Chemin relatif du fichier MP3")):
     """
     Diffuse le MP3 en streaming natif (content-disposition: inline)
     avec support du seek/scrubbing (HTTP Range) pour le lecteur audio.
+    Seuls les fichiers .mp3 situés dans le dossier de téléchargement sont accessibles.
     """
-    download_dir_str = config.get("download_dir")
-    download_dir = Path(os.path.expandvars(os.path.expanduser(download_dir_str))).resolve()
+    download_dir = resolve_download_dir()
     target_path = (download_dir / path).resolve()
 
-    if not str(target_path).startswith(str(download_dir)) or not target_path.exists():
+    if (
+        not target_path.is_relative_to(download_dir)
+        or target_path.suffix.lower() != ".mp3"
+        or not target_path.is_file()
+    ):
         raise HTTPException(status_code=404, detail="Fichier audio introuvable sur le serveur.")
 
     return FileResponse(
@@ -467,9 +585,11 @@ async def api_get_settings():
     curr_template = config.get("filename_template")
     sample_preview = preview_template(curr_template)
     full_sample_path = os.path.join(curr_dir, sample_preview)
+    music_root = get_music_root()
 
     return {
         "download_dir": curr_dir,
+        "music_root": str(music_root) if music_root else None,
         "filename_template": curr_template,
         "audio_quality": config.get("audio_quality", "320k"),
         "max_threads": config.get("max_threads", 3),
@@ -481,26 +601,32 @@ async def api_get_settings():
 
 
 @app.post("/api/settings")
-async def api_save_settings(payload: Dict[str, Any] = Body(...)):
+async def api_save_settings(payload: SettingsIn):
     """Enregistre le chemin local et la structure de dossiers sur le serveur."""
-    if "download_dir" in payload and payload["download_dir"]:
-        raw_path = payload["download_dir"].strip()
+    if payload.download_dir and payload.download_dir.strip():
+        raw_path = payload.download_dir.strip()
+        expanded = Path(os.path.expandvars(os.path.expanduser(raw_path))).resolve()
+        music_root = get_music_root()
+        if music_root and not expanded.is_relative_to(music_root):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Le dossier de téléchargement doit se trouver dans {music_root}."
+            )
         # Création automatique du dossier s'il n'existe pas
         try:
-            expanded = Path(os.path.expandvars(os.path.expanduser(raw_path)))
             expanded.mkdir(parents=True, exist_ok=True)
-            config.set("download_dir", str(expanded), auto_save=False)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Chemin invalide sur le serveur : {e}")
+        config.set("download_dir", str(expanded), auto_save=False)
 
-    if "filename_template" in payload and payload["filename_template"]:
-        config.set("filename_template", payload["filename_template"].strip(), auto_save=False)
-    if "audio_quality" in payload:
-        config.set("audio_quality", payload["audio_quality"], auto_save=False)
-    if "max_threads" in payload:
-        config.set("max_threads", int(payload["max_threads"]), auto_save=False)
-    if "on_duplicate" in payload:
-        config.set("on_duplicate", payload["on_duplicate"], auto_save=False)
+    if payload.filename_template and payload.filename_template.strip():
+        config.set("filename_template", payload.filename_template.strip(), auto_save=False)
+    if payload.audio_quality is not None:
+        config.set("audio_quality", payload.audio_quality, auto_save=False)
+    if payload.max_threads is not None:
+        config.set("max_threads", payload.max_threads, auto_save=False)
+    if payload.on_duplicate is not None:
+        config.set("on_duplicate", payload.on_duplicate, auto_save=False)
 
     config.save()
     curr_dir = config.get("download_dir")
@@ -519,13 +645,18 @@ async def api_save_settings(payload: Dict[str, Any] = Body(...)):
 @app.post("/api/settings/cookies")
 async def api_upload_cookies(file: UploadFile = File(...)):
     """Téléverse un fichier cookies.txt pour contourner le bridage YouTube."""
-    config_dir = Path(os.environ.get("CONFIG_DIR", "/config"))
-    config_dir.mkdir(parents=True, exist_ok=True)
-    target_path = config_dir / "cookies.txt"
-    content = await file.read()
+    content = await file.read(MAX_COOKIES_SIZE + 1)
     if not content:
         raise HTTPException(status_code=400, detail="Fichier cookies.txt vide")
+    if len(content) > MAX_COOKIES_SIZE:
+        raise HTTPException(status_code=413, detail="Fichier cookies.txt trop volumineux (1 Mo maximum)")
+
+    target_path = config.cookies_path
+    target_path.parent.mkdir(parents=True, exist_ok=True)
     with open(target_path, "wb") as f:
         f.write(content)
+    try:
+        os.chmod(target_path, 0o600)
+    except OSError:
+        pass
     return {"status": "ok", "message": "Fichier cookies.txt activé avec succès !", "size": len(content)}
-

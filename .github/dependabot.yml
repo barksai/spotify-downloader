@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # yt-dlp est figé dans requirements.txt : Dependabot propose chaque nouvelle version
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      yt-dlp:
+        patterns: ["yt-dlp*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
