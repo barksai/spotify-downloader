@@ -1,6 +1,6 @@
 # Dépendances du serveur Web (Docker / Windows)
 fastapi>=0.110.0
-uvicorn[standard]>=0.28.0
+uvicorn[standard]>=0.54.0
 jinja2>=3.1.0
 python-multipart>=0.0.9
 pydantic>=2.6.0
