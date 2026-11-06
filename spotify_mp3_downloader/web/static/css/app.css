@@ -363,6 +363,27 @@ main {
     text-overflow: ellipsis;
 }
 
+.album-rating {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: -4px 0 8px;
+    font-size: 0.85rem;
+}
+
+.album-rating .stars {
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, #ffc107 var(--rating-pct, 0%), rgba(160, 160, 160, 0.35) var(--rating-pct, 0%));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.album-rating .rating-value {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
 .album-actions {
     display: flex;
     gap: 8px;

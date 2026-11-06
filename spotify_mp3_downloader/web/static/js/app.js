@@ -144,6 +144,19 @@ async function handleMainSearch() {
     }
 }
 
+function renderStars(rating, popularity) {
+    if (rating === null || rating === undefined) return "";
+    const value = Math.max(0, Math.min(5, Number(rating)));
+    const pct = (value / 5) * 100;
+    const fans = popularity !== null && popularity !== undefined
+        ? ` (${Number(popularity).toLocaleString("fr-FR")} fans)` : "";
+    const label = `Popularité : ${value.toLocaleString("fr-FR")} / 5${fans}`;
+    return `<div class="album-rating" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
+                <span class="stars" style="--rating-pct: ${pct}%">★★★★★</span>
+                <span class="rating-value">${value.toLocaleString("fr-FR", { minimumFractionDigits: 1 })}</span>
+            </div>`;
+}
+
 function renderCards(items) {
     const grid = document.getElementById("results-grid");
     grid.innerHTML = "";
@@ -164,6 +177,7 @@ function renderCards(items) {
             <div class="album-info">
                 <div class="album-title" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>
                 <div class="album-artist">${escapeHtml(item.owner)} • ${item.total_tracks} titres</div>
+                ${renderStars(item.rating, item.popularity)}
                 <div class="album-actions">
                     <button class="btn-secondary btn-explore">🔍 Explorer</button>
                     <button class="btn-primary btn-download" style="padding: 6px 14px; font-size: 0.85rem;">⬇ Télécharger sur le serveur</button>

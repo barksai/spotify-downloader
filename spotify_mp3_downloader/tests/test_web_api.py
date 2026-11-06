@@ -133,7 +133,8 @@ def test_api_library(client):
 
 def test_api_search_albums(client, monkeypatch):
     fake = [SpotifyPlaylist(id="deezer_1", name="Discovery", description="", owner="Daft Punk",
-                            total_tracks=14, cover_url=None, is_public=True)]
+                            total_tracks=14, cover_url=None, is_public=True,
+                            popularity=250000, rating=5.0)]
     monkeypatch.setattr(server, "search_albums", lambda q, limit: fake)
 
     response = client.get("/api/search?q=Discovery+Daft+Punk")
@@ -141,6 +142,8 @@ def test_api_search_albums(client, monkeypatch):
     albums = response.json()
     assert len(albums) == 1
     assert albums[0]["name"] == "Discovery"
+    assert albums[0]["rating"] == 5.0
+    assert albums[0]["popularity"] == 250000
 
 
 # -------------------------------------------------------------------------

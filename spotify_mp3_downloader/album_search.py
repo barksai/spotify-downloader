@@ -3,6 +3,8 @@ Spotify MP3 Downloader - Album Search Engine
 Recherche d'albums complète (via Deezer et iTunes APIs publiques, gratuites et sans clé)
 permettant d'explorer et de télécharger un album complet en MP3 320 kbps.
 """
+import math
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 import requests
 
@@ -11,6 +13,49 @@ from .spotify_client import SpotifyPlaylist, SpotifyTrack
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 }
+
+
+# Nombre de fans Deezer correspondant à la note maximale (5 étoiles).
+# L'échelle est logarithmique : 10 fans = 1★, 100 = 2★, 1 000 = 3★, 10 000 = 4★, 100 000+ = 5★.
+FANS_FOR_FIVE_STARS = 100_000
+
+
+def popularity_to_rating(fans: Optional[int]) -> Optional[float]:
+    """Convertit un nombre de fans en note sur 5 étoiles, arrondie à la demi-étoile."""
+    if fans is None:
+        return None
+    try:
+        fans = int(fans)
+    except (TypeError, ValueError):
+        return None
+    if fans <= 0:
+        return 0.0
+    score = 5 * math.log10(fans + 1) / math.log10(FANS_FOR_FIVE_STARS)
+    return min(5.0, round(score * 2) / 2)
+
+
+def _fetch_deezer_fans(deezer_id) -> Optional[int]:
+    """Récupère le nombre de fans d'un album Deezer (la recherche ne le fournit pas)."""
+    try:
+        resp = requests.get(f"https://api.deezer.com/album/{deezer_id}", headers=HEADERS, timeout=5)
+        if resp.status_code == 200:
+            fans = resp.json().get("fans")
+            return int(fans) if fans is not None else None
+    except Exception as e:
+        print(f"[AlbumSearch] Popularité indisponible pour l'album Deezer {deezer_id}: {e}")
+    return None
+
+
+def _apply_deezer_ratings(albums: List[SpotifyPlaylist]) -> None:
+    """Complète en parallèle la popularité et la note des albums issus de Deezer."""
+    deezer_albums = [a for a in albums if a.id.startswith("deezer_")]
+    if not deezer_albums:
+        return
+    with ThreadPoolExecutor(max_workers=min(8, len(deezer_albums))) as pool:
+        fans_list = list(pool.map(lambda a: _fetch_deezer_fans(a.id[len("deezer_"):]), deezer_albums))
+    for album, fans in zip(deezer_albums, fans_list):
+        album.popularity = fans
+        album.rating = popularity_to_rating(fans)
 
 
 def search_albums(query: str, limit: int = 15) -> List[SpotifyPlaylist]:
@@ -58,6 +103,9 @@ def search_albums(query: str, limit: int = 15) -> List[SpotifyPlaylist]:
                     ))
     except Exception as e:
         print(f"[AlbumSearch] Erreur recherche Deezer: {e}")
+
+    # Notation sur 5 étoiles selon la popularité (nombre de fans Deezer)
+    _apply_deezer_ratings(albums)
 
     # 2. Complément via iTunes Search API si peu de résultats
     if len(albums) < 5:
