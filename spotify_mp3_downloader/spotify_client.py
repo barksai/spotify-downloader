@@ -128,6 +128,10 @@ class SpotifyPlaylist:
     cover_url: Optional[str]
     is_public: bool
     tracks: List[SpotifyTrack] = field(default_factory=list)
+    # Popularité brute fournie par la source (ex. nombre de fans Deezer), None si inconnue
+    popularity: Optional[int] = None
+    # Note sur 5 étoiles (demi-étoiles possibles) dérivée de la popularité, None si inconnue
+    rating: Optional[float] = None
 
 
 class OAuthCallbackHandler(BaseHTTPRequestHandler):

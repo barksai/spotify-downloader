@@ -367,7 +367,9 @@ async def api_search(q: str = Query(..., description="Terme de recherche", max_l
             "owner": p.owner,
             "total_tracks": p.total_tracks,
             "cover_url": p.cover_url,
-            "description": p.description
+            "description": p.description,
+            "popularity": p.popularity,
+            "rating": p.rating
         }
         for p in results
     ]

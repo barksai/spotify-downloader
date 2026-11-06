@@ -4,7 +4,7 @@ Tests unitaires pour le moteur de recherche d'albums (réseau simulé : aucun ap
 import pytest
 
 from spotify_mp3_downloader import album_search
-from spotify_mp3_downloader.album_search import search_albums, fetch_album_tracks
+from spotify_mp3_downloader.album_search import search_albums, fetch_album_tracks, popularity_to_rating
 
 
 class FakeResponse:
@@ -30,6 +30,7 @@ DEEZER_SEARCH = {
 
 DEEZER_ALBUM = {
     "title": "Discovery",
+    "fans": 250000,
     "release_date": "2001-03-07",
     "cover_xl": "https://e-cdns-images.dzcdn.net/images/cover/discovery/1000x1000.jpg",
     "artist": {"name": "Daft Punk"},
@@ -98,3 +99,39 @@ def test_fetch_album_tracks(fake_network):
     assert t1.track_number_padded == "01"
     assert t1.genre == "Electro"
     assert t1.isrc == "GBDUW0000053"
+
+
+def test_search_albums_adds_star_rating_from_deezer_fans(fake_network):
+    first = search_albums("Discovery Daft Punk", limit=5)[0]
+    assert first.popularity == 250000
+    assert first.rating == 5.0
+
+
+@pytest.mark.parametrize("fans, expected", [
+    (None, None),
+    ("abc", None),
+    (0, 0.0),
+    (9, 1.0),
+    (99, 2.0),
+    (999, 3.0),
+    (3000, 3.5),
+    (9999, 4.0),
+    (100000, 5.0),
+    (50_000_000, 5.0),
+])
+def test_popularity_to_rating(fans, expected):
+    assert popularity_to_rating(fans) == expected
+
+
+def test_rating_missing_when_album_lookup_fails(monkeypatch):
+    def fake_get(url, params=None, headers=None, timeout=None):
+        if url == "https://api.deezer.com/search/album":
+            return FakeResponse(DEEZER_SEARCH)
+        if url.startswith("https://api.deezer.com/album/"):
+            raise ConnectionError("timeout")
+        return FakeResponse({"results": []})
+
+    monkeypatch.setattr(album_search.requests, "get", fake_get)
+    first = search_albums("Discovery", limit=5)[0]
+    assert first.popularity is None
+    assert first.rating is None

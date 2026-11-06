@@ -54,6 +54,12 @@ class PlaylistCard(ctk.CTkFrame):
         self.title_label.grid(row=0, column=1, sticky="w", padx=(5, 10), pady=(10, 0))
 
         sub_text = f"Par {self.playlist.owner} • {self.playlist.total_tracks} titres"
+        rating = getattr(self.playlist, "rating", None)
+        if rating is not None:
+            full = int(rating)
+            half = "½" if rating - full >= 0.5 else ""
+            stars = "★" * full + half + "☆" * (5 - full - (1 if half else 0))
+            sub_text += f" • {stars} {rating:.1f}/5"
         self.subtitle_label = ctk.CTkLabel(
             self,
             text=sub_text,

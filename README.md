@@ -9,6 +9,7 @@ Fonctionne soit en **serveur web auto-hébergé sous Docker / Portainer (Debian)
 ## ✨ Fonctionnalités
 
 - **🔍 Recherche d'albums intégrée (Deezer & iTunes)** : 100% gratuit, aucun compte Spotify Premium ni clé API requis pour rechercher et télécharger un album complet en 1 clic.
+- **⭐ Notation sur 5 étoiles** : chaque album recherché affiche une note de popularité (demi-étoiles) calculée à partir du nombre de fans Deezer, sur une échelle logarithmique (10 fans = 1★, 1 000 = 3★, 100 000+ = 5★). Les albums issus d'iTunes n'ont pas de donnée de popularité et ne sont pas notés.
 - **🔗 Support des URLs Spotify** : Collez n'importe quel lien d'album, de playlist ou de titre Spotify.
 - **⚡ Moteur d'acquisition** : Recherche par code **ISRC** puis par titre/artiste sur YouTube via `yt-dlp` (avec contrôle de la durée pour écarter remix et lives), puis encodage MP3 via `FFmpeg`.
 - **🏷️ Tagging ID3v2.3 complet (`mutagen`)** : titre, artiste(s), artiste de l'album (TPE2), album, année/date, piste/disque, genre, ISRC, pochette HD intégrée + `cover.jpg` / `folder.jpg`.
